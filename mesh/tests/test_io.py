@@ -28,3 +28,26 @@ def test_write_read():
     anew = nd.get_var("a")
 
     assert_array_equal(anew.v(), a.v())
+
+
+def test_write_read_1d():
+
+    myg = patch.Grid1d(8, ng=2, xmax=1.0)
+    myd = patch.CellCenterData1d(myg)
+
+    bco = bnd.BC(xlb="outflow", xrb="outflow")
+    myd.register_var("a", bco)
+
+    myd.create()
+
+    a = myd.get_var("a")
+    a.v()[:] = np.arange(8)
+
+    myd.write("io_test_1d")
+
+    # now read it in
+    nd = io.read_1d("io_test_1d")
+
+    anew = nd.get_var("a")
+
+    assert_array_equal(anew.v(), a.v())

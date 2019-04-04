@@ -11,6 +11,11 @@ def test_buf_split():
     assert_array_equal(ai._buf_split((2, 3)), [2, 3, 2, 3])
 
 
+def test_buf_split_1d():
+    assert_array_equal(ai._buf_split_1d(2), [2, 2])
+    assert_array_equal(ai._buf_split_1d((2, 3)), [2, 3])
+
+
 # ArrayIndexer tests
 def test_indexer():
     g = patch.Grid2d(2, 3, ng=2)
@@ -47,5 +52,36 @@ def test_is_asymmetric():
     a[:, 0] = [-1, -2, 2, 1]
     a[:, 1] = [-2, -4, 4, 2]
     a[:, 2] = [-1, -2, 2, 1]
+
+    assert a.is_asymmetric()
+
+
+# ArrayIndexer1d tests
+def test_indexer_1d():
+    g = patch.Grid1d(3, ng=2)
+    a = g.scratch_array()
+
+    a[:] = np.arange(g.qx)
+
+    assert_array_equal(a.v(), np.array([2., 3., 4.]))
+
+    assert_array_equal(a.ip(1), np.array([3., 4., 5.]))
+    assert_array_equal(a.ip(-1), np.array([1., 2., 3.]))
+
+
+def test_is_symmetric_1d():
+    g = patch.Grid1d(4, ng=0)
+    a = g.scratch_array()
+
+    a[:] = [1, 2, 2, 1]
+
+    assert a.is_symmetric()
+
+
+def test_is_asymmetric_1d():
+    g = patch.Grid1d(4, ng=0)
+    a = g.scratch_array()
+
+    a[:] = [-1, -2, 2, 1]
 
     assert a.is_asymmetric()
