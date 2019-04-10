@@ -12,6 +12,7 @@ import compare
 from util import msg, profile, runparams, io
 
 valid_solvers = ["advection",
+                 "advection_1d",
                  "advection_nonuniform",
                  "advection_rk",
                  "advection_fv4",

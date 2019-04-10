@@ -39,6 +39,26 @@ def grid_setup(rp, ng=1):
     return my_grid
 
 
+def grid_setup_1d(rp, ng=1):
+    nx = rp.get_param("mesh.nx")
+
+    try:
+        xmin = rp.get_param("mesh.xmin")
+    except KeyError:
+        xmin = 0.0
+        msg.warning("mesh.xmin not set, defaulting to 0.0")
+
+    try:
+        xmax = rp.get_param("mesh.xmax")
+    except KeyError:
+        xmax = 1.0
+        msg.warning("mesh.xmax not set, defaulting to 1.0")
+
+    my_grid = patch.Grid1d(nx, xmin=xmin, xmax=xmax, ng=ng)
+
+    return my_grid
+
+
 def bc_setup(rp):
 
     # first figure out the BCs
@@ -80,6 +100,30 @@ def bc_setup(rp):
                      odd_reflect_dir="y")
 
     return bc, bc_xodd, bc_yodd
+
+
+def bc_setup_1d(rp):
+
+    # first figure out the BCs
+    try:
+        xlb_type = rp.get_param("mesh.xlboundary")
+    except KeyError:
+        xlb_type = "periodic"
+        msg.warning("mesh.xlboundary is not set, defaulting to periodic")
+
+    try:
+        xrb_type = rp.get_param("mesh.xrboundary")
+    except KeyError:
+        xrb_type = "periodic"
+        msg.warning("mesh.xrboundary is not set, defaulting to periodic")
+
+    bc = bnd.BC1d(xlb=xlb_type, xrb=xrb_type)
+
+    # if we are reflecting, we need odd reflection in the normal
+    # directions for the velocity
+    bc_xodd = bnd.BC1d(xlb=xlb_type, xrb=xrb_type, odd_reflect_dir="x")
+
+    return bc, bc_xodd
 
 
 class NullSimulation(object):
