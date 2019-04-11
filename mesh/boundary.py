@@ -213,3 +213,106 @@ class BC(object):
             (self.xlb, self.xrb, self.ylb, self.yrb)
 
         return string
+
+
+class BC1d(object):
+    """Boundary condition (1D) container -- hold the BCs on each boundary
+    for a single variable.
+
+    For Neumann and Dirichlet BCs, a function callback can be stored
+    for inhomogeous BCs.  This function should provide the value on
+    the physical boundary (not cell center).  This is evaluated on the
+    relevant edge when the __init__ routine is called.  For this
+    reason, you need to pass in a grid object.  Note: this only
+    ensures that the first ghost cells is consistent with the BC
+    value.
+
+    """
+
+    def __init__(self,
+                 xlb="outflow", xrb="outflow",
+                 xl_func=None, xr_func=None,
+                 grid=None,
+                 odd_reflect_dir=""):
+        """
+        Create the BC object.
+
+        Parameters
+        ----------
+        xlb : {'outflow', 'periodic', 'reflect', 'reflect-even',
+               'reflect-odd', 'dirichlet', 'neumann',
+               user-defined}, optional
+            The type of boundary condition to enforce on the lower
+            x boundary.  user-defined requires one to have defined
+            a new boundary condition type using define_bc()
+
+        xrb : {'outflow', 'periodic', 'reflect', 'reflect-even',
+               'reflect-odd', 'dirichlet', 'neumann',
+               user-defined}, optional
+            The type of boundary condition to enforce on the upper
+            x boundary.  user-defined requires one to have defined
+            a new boundary condition type using define_bc()
+
+        odd_reflect_dir : {'x', 'y'}, optional
+            The direction along which reflection should be odd
+            (sign changes).  If not specified, a boundary condition
+            of 'reflect' will always be set to 'reflect-even'
+
+        xl_func : function, optional
+            A function, f(y), that provides the value of the
+            Dirichlet or Neumann BC on the -x physical boundary.
+
+        xr_func : function, optional
+            A function, f(y), that provides the value of the
+            Dirichlet or Neumann BC on the +x physical boundary.
+
+        grid : a Grid1d object, optional
+            The grid object is used for evaluating the function
+            to define the boundary values for inhomogeneous
+            Dirichlet and Neumann BCs.  It is required if
+            any functions are passed in.
+        """
+
+        # note: "reflect" is ambiguous and will be converted into
+        # either reflect-even (the default) or reflect-odd if
+        # odd_reflect_dir specifies the corresponding direction ("x",
+        # "y")
+
+        valid = list(bc_solid.keys())
+
+        # -x boundary
+        if xlb in valid:
+            self.xlb = xlb
+            if self.xlb == "reflect":
+                self.xlb = _set_reflect(odd_reflect_dir, "x")
+        else:
+            msg.fail("ERROR: xlb = %s invalid BC" % (xlb))
+
+        # +x boundary
+        if xrb in valid:
+            self.xrb = xrb
+            if self.xrb == "reflect":
+                self.xrb = _set_reflect(odd_reflect_dir, "x")
+        else:
+            msg.fail("ERROR: xrb = %s invalid BC" % (xrb))
+
+        # periodic checks
+        if ((xlb == "periodic" and xrb != "periodic") or
+                (xrb == "periodic" and xlb != "periodic")):
+            msg.fail("ERROR: both xlb and xrb must be periodic")
+
+        # inhomogeneous functions for Dirichlet or Neumann
+        self.xl_value = self.xr_value = None
+
+        if xl_func is not None:
+            self.xl_value = xl_func(grid.y)
+        if xr_func is not None:
+            self.xr_value = xr_func(grid.y)
+
+    def __str__(self):
+        """ print out some basic information about the BC object """
+
+        string = "BCs: -x: %s  +x: %s" % \
+            (self.xlb, self.xrb)
+
+        return string

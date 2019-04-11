@@ -15,6 +15,17 @@ def limit(data, myg, idir, limiter):
         return limit4(data, myg, idir)
 
 
+def limit_1d(data, myg, limiter):
+    """ a single driver that calls the different limiters based on the value
+    of the limiter input variable."""
+    if limiter == 0:
+        return nolimit_1d(data, myg)
+    elif limiter == 1:
+        return limit2_1d(data, myg)
+    else:
+        return limit4_1d(data, myg)
+
+
 def well_balance(q, myg, limiter, iv, grav):
     """subtract off the hydrostatic pressure before limiting.  Note, this
     only considers the y direction."""
@@ -63,6 +74,16 @@ def nolimit(a, myg, idir):
     return lda
 
 
+def nolimit_1d(a, myg):
+    """ just a centered difference without any limiting """
+
+    lda = myg.scratch_array()
+
+    lda.v(buf=2)[:] = 0.5*(a.ip(1, buf=2) - a.ip(-1, buf=2))
+
+    return lda
+
+
 def limit2(a, myg, idir):
     """ 2nd order monotonized central difference limiter """
 
@@ -84,6 +105,25 @@ def limit2(a, myg, idir):
     d1 = 2.0*np.where(np.fabs(dl) < np.fabs(dr), dl, dr)
     dt = np.where(np.fabs(dc) < np.fabs(d1), dc, d1)
     lda.v(buf=myg.ng)[:, :] = np.where(dl*dr > 0.0, dt, 0.0)
+
+    return lda
+
+
+def limit2_1d(a, myg):
+    """ 2nd order monotonized central difference limiter """
+
+    lda = myg.scratch_array()
+    dc = myg.scratch_array()
+    dl = myg.scratch_array()
+    dr = myg.scratch_array()
+
+    dc.v(buf=2)[:] = 0.5*(a.ip(1, buf=2) - a.ip(-1, buf=2))
+    dl.v(buf=2)[:] = a.ip(1, buf=2) - a.v(buf=2)
+    dr.v(buf=2)[:] = a.v(buf=2) - a.ip(-1, buf=2)
+
+    d1 = 2.0*np.where(np.fabs(dl) < np.fabs(dr), dl, dr)
+    dt = np.where(np.fabs(dc) < np.fabs(d1), dc, d1)
+    lda.v(buf=myg.ng)[:] = np.where(dl*dr > 0.0, dt, 0.0)
 
     return lda
 
@@ -113,6 +153,28 @@ def limit4(a, myg, idir):
     d1 = 2.0*np.where(np.fabs(dl) < np.fabs(dr), dl, dr)
     dt = np.where(np.fabs(dc) < np.fabs(d1), dc, d1)
     lda.v(buf=myg.ng)[:, :] = np.where(dl*dr > 0.0, dt, 0.0)
+
+    return lda
+
+
+def limit4_1d(a, myg):
+    """ 4th order monotonized central difference limiter """
+
+    lda_tmp = limit2_1d(a, myg)
+
+    lda = myg.scratch_array()
+    dc = myg.scratch_array()
+    dl = myg.scratch_array()
+    dr = myg.scratch_array()
+
+    dc.v(buf=2)[:] = (2./3.)*(a.ip(1, buf=2) - a.ip(-1, buf=2) -
+                                 0.25*(lda_tmp.ip(1, buf=2) + lda_tmp.ip(-1, buf=2)))
+    dl.v(buf=2)[:] = a.ip(1, buf=2) - a.v(buf=2)
+    dr.v(buf=2)[:] = a.v(buf=2) - a.ip(-1, buf=2)
+
+    d1 = 2.0*np.where(np.fabs(dl) < np.fabs(dr), dl, dr)
+    dt = np.where(np.fabs(dc) < np.fabs(d1), dc, d1)
+    lda.v(buf=myg.ng)[:] = np.where(dl*dr > 0.0, dt, 0.0)
 
     return lda
 
