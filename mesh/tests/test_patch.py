@@ -244,3 +244,194 @@ def test_bcs():
     # top
     assert_array_equal(d[myg.ilo:myg.ihi+1, myg.jhi-1:myg.jhi+1],
                        -np.fliplr(d[myg.ilo:myg.ihi+1, myg.jhi+1:myg.jhi+3]))
+
+
+# Grid1d tests
+class TestGrid1d(object):
+    @classmethod
+    def setup_class(cls):
+        """ this is run once for each class before any tests """
+        pass
+
+    @classmethod
+    def teardown_class(cls):
+        """ this is run once for each class after all tests """
+        pass
+
+    def setup_method(self):
+        """ this is run before each test """
+        self.g = patch.Grid1d(6, ng=2, xmax=1.5)
+
+    def teardown_method(self):
+        """ this is run after each test """
+        self.g = None
+
+    def test_dx_dy(self):
+        assert self.g.dx == 0.25
+
+    def test_grid_coords(self):
+        assert_array_equal(self.g.x[self.g.ilo:self.g.ihi+1],
+                           np.array([0.125, 0.375, 0.625, 0.875, 1.125, 1.375]))
+
+    def test_scratch_array(self):
+        q = self.g.scratch_array()
+        assert q.shape == (self.g.qx,)
+
+    def test_coarse_like(self):
+        q = self.g.coarse_like(2)
+        assert q.qx == 2*self.g.ng + self.g.nx//2
+
+    def test_fine_like(self):
+        q = self.g.fine_like(2)
+        assert q.qx == 2*self.g.ng + 2*self.g.nx
+
+    def test_norm(self):
+        q = self.g.scratch_array()
+        # there are 6 elements, the norm L2 norm is
+        # sqrt(dx*6)
+        q.v()[:] = np.array([1, 1, 1, 1, 1, 1])
+
+        assert q.norm() == np.sqrt(6*self.g.dx)
+
+    def test_equality(self):
+        g2 = patch.Grid1d(5, ng=1)
+        assert g2 != self.g
+
+
+# CellCenterData1d tests
+class TestCellCenterData1d(object):
+    @classmethod
+    def setup_class(cls):
+        """ this is run once for each class before any tests """
+        pass
+
+    @classmethod
+    def teardown_class(cls):
+        """ this is run once for each class after all tests """
+        pass
+
+    def setup_method(self):
+        """ this is run before each test """
+        nx = 8
+        self.g = patch.Grid1d(nx, ng=2, xmax=1.0)
+        self.d = patch.CellCenterData1d(self.g, dtype=np.int)
+
+        bco = bnd.BC1d(xlb="outflow", xrb="outflow")
+        self.d.register_var("a", bco)
+        self.d.register_var("b", bco)
+        self.d.create()
+
+    def teardown_method(self):
+        """ this is run after each test """
+        self.g = None
+        self.d = None
+
+    def test_zeros(self):
+
+        a = self.d.get_var("a")
+        a[:] = 1.0
+
+        self.d.zero("a")
+        assert np.all(a.v() == 0.0)
+
+    def test_aux(self):
+        self.d.set_aux("ftest", 1.0)
+        self.d.set_aux("stest", "this was a test")
+
+        assert self.d.get_aux("ftest") == 1.0
+        assert self.d.get_aux("stest") == "this was a test"
+
+    def test_gets(self):
+        aname = self.d.get_var("a")
+        aname[:] = np.random.rand(aname.shape[0])
+
+        aindex = self.d.get_var_by_index(0)
+
+        assert_array_equal(aname, aindex)
+
+    def test_min_and_max(self):
+        a = self.d.get_var("a")
+        a.v()[:] = np.arange(self.g.nx) + 1
+        assert self.d.min("a") == 1.0
+        assert self.d.max("a") == 8.0
+
+    def test_restrict(self):
+        a = self.d.get_var("a")
+        a.v()[:] = np.arange(self.g.nx) + 1
+
+        c = self.d.restrict("a")
+
+        # restriction should be conservative, so compare the volume-weighted sums
+        assert np.sum(a.v()) == 2.0*np.sum(c.v())
+
+    def test_prolong(self):
+        a = self.d.get_var("a")
+        a.v()[:] = np.arange(self.g.nx) + 1
+
+        f = self.d.prolong("a")
+
+        # prologation should be conservative, so compare the volume-weighted sums
+        assert 2.0*np.sum(a.v()) == np.sum(f.v())
+
+    def test_zero(self):
+        a = self.d.get_var("a")
+        a.v()[:] = np.arange(self.g.nx) + 1
+
+        self.d.zero("a")
+        assert self.d.min("a") == 0.0 and self.d.max("a") == 0.0
+
+
+def test_bcs_1d():
+
+    myg = patch.Grid1d(4, ng=2, xmax=1.0)
+    myd = patch.CellCenterData1d(myg, dtype=np.int)
+
+    bco = bnd.BC(xlb="outflow", xrb="outflow")
+    myd.register_var("outflow", bco)
+
+    bcp = bnd.BC(xlb="periodic", xrb="periodic")
+    myd.register_var("periodic", bcp)
+
+    bcre = bnd.BC(xlb="reflect-even", xrb="reflect-even")
+    myd.register_var("reflect-even", bcre)
+
+    bcro = bnd.BC(xlb="reflect-odd", xrb="reflect-odd")
+    myd.register_var("reflect-odd", bcro)
+
+    myd.create()
+
+    a = myd.get_var("outflow")
+    a.v()[:] = np.array([1, 2, 3, 4], dtype=int)
+
+    b = myd.get_var("periodic")
+    c = myd.get_var("reflect-even")
+    d = myd.get_var("reflect-odd")
+
+    b[:] = a[:]
+    c[:] = a[:]
+    d[:] = a[:]
+
+    myd.fill_BC("outflow")
+    # left ghost
+    assert a[myg.ilo - 1] == 1
+    # right ghost
+    assert a[myg.ihi + 1] == 4
+
+    myd.fill_BC("periodic")
+    # x-boundaries
+    assert b[myg.ilo-1] == b[myg.ihi]
+    assert b[myg.ilo] == b[myg.ihi+1]
+
+    myd.fill_BC("reflect-even")
+    # left -- we'll check 2 ghost cells here
+    # left
+    assert_array_equal(c[myg.ilo:myg.ilo+2], c[myg.ilo-2:myg.ilo][::-1])
+    # right
+    assert_array_equal(c[myg.ihi-1:myg.ihi+1], c[myg.ihi+1:myg.ihi+3][::-1])
+
+    myd.fill_BC("reflect-odd")
+    # left -- we'll check 2 ghost cells here
+    # left
+    assert_array_equal(d[myg.ilo:myg.ilo+2], -1.0*d[myg.ilo-2:myg.ilo][::-1])
+    # right
+    assert_array_equal(d[myg.ihi-1:myg.ihi+1], -1.0*d[myg.ihi+1:myg.ihi+3][::-1])
