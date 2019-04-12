@@ -74,11 +74,35 @@ def cons_to_prim(U, gamma, ivars, myg):
 
     return q
 
-def cons_to_prim_GR(U, gamma, ivars, myg):
+def cons_to_prim_GR(U, gamma, ivars, myg, metric):
     """ convert an input vector of conserved variables (GR) to primitive variables (GR) M.A.P."""
+    def f_p(p, U, gamma, metric):
+    #calculates pressure
+    
+    #shortcut variables 
+    upd = U.tau + p + U.d
+    
+    gss = gamma_up[1,1]*U.S[1]*U.S[1]    
+
+    rho = U.D/upd*np.sqrt(upd**2 - gss)
+
+    eps = upd**(-1)*(np.sqrt(upd**2 - gss) - upd/np.sqrt(upd**2 - gss) - U.D)
+
+        return p - rho*eps*(gamma - 1) #could be be eos call?
 
     q = myg.scratch_array(nvar=ivars.nq)
 
+    q[:, :, ivars.ip] = optimize.brentq(f_p,-0.1,1.e13) #upper limit is just ad hoc
+    q[:, :, ivars.irho] = 
+    q[:, :, ivars.iener] = 
+
+    def f_v(v,U,q,metric):
+
+        return (U.S - (U.rho + U.rho*U.eps + q[:, :, ivars.ip])*(1 + metric_up[1][1]*v**2)*v)
+
+    q[:, :, ivars.iv] = optimize.brentq(f_v,-0.1,3.e10) #can it be negative?
+
+    #left off here Mike
     q[:, :, ivars.irho] = U[:, :, ivars.idens]
     q[:, :, ivars.iu] = U[:, :, ivars.ixmom]/U[:, :, ivars.idens]
     q[:, :, ivars.iv] = U[:, :, ivars.iymom]/U[:, :, ivars.idens]
@@ -89,8 +113,7 @@ def cons_to_prim_GR(U, gamma, ivars, myg):
 
     q[:, :, ivars.ip] = eos.pres(gamma, q[:, :, ivars.irho], e)
 
-    ##Mike here you will put the root finder
-
+    #????
     if ivars.naux > 0:
         for nq, nu in zip(range(ivars.ix, ivars.ix+ivars.naux),
                           range(ivars.irhox, ivars.irhox+ivars.naux)):
@@ -100,27 +123,6 @@ def cons_to_prim_GR(U, gamma, ivars, myg):
 
 def prim_to_cons(q, gamma, ivars, myg):
     """ convert an input vector of primitive variables to conserved variables """
-
-    U = myg.scratch_array(nvar=ivars.nvar)
-
-    U[:, :, ivars.idens] = q[:, :, ivars.irho]
-    U[:, :, ivars.ixmom] = q[:, :, ivars.iu]*U[:, :, ivars.idens]
-    U[:, :, ivars.iymom] = q[:, :, ivars.iv]*U[:, :, ivars.idens]
-
-    rhoe = eos.rhoe(gamma, q[:, :, ivars.ip])
-
-    U[:, :, ivars.iener] = rhoe + 0.5*q[:, :, ivars.irho]*(q[:, :, ivars.iu]**2 +
-                                                           q[:, :, ivars.iv]**2)
-
-    if ivars.naux > 0:
-        for nq, nu in zip(range(ivars.ix, ivars.ix+ivars.naux),
-                          range(ivars.irhox, ivars.irhox+ivars.naux)):
-            U[:, :, nu] = q[:, :, nq]*q[:, :, ivars.irho]
-
-    return U
-
-def prim_to_cons_GR(q, gamma, ivars, myg):
-    """ convert an input vector of primitive variables (GR) to conserved variables(GR) M.A.P."""
 
     U = myg.scratch_array(nvar=ivars.nvar)
 
