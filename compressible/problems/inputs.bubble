@@ -3,7 +3,7 @@
 [driver]
 max_steps = 1000
 tmax = 100.0
-
+cfl = 0.1
 
 [io]
 basename = bubble_
@@ -37,3 +37,4 @@ pert_amplitude_factor = 2.0
 grav = -2.0
 
 limiter = 2
+riemann = HLLE

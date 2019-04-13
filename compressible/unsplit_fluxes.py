@@ -290,6 +290,8 @@ def unsplit_fluxes(my_data, my_aux, rp, ivars, solid, tc, dt):
 
     if riemann == "HLLC":
         riemannFunc = ifc.riemann_hllc
+    elif riemann == "HLLE":
+        riemannFunc = ifc.riemann_hlle
     elif riemann == "CGF":
         riemannFunc = ifc.riemann_cgf
     else:

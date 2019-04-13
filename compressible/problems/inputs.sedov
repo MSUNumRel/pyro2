@@ -1,11 +1,12 @@
 [driver]
 max_steps = 5000
 tmax = 0.1
-
+cfl = 0.1
 
 [compressible]
 limiter = 2
 cvisc = 0.1
+riemann = HLLE
 
 
 [io]

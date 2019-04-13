@@ -1065,6 +1065,143 @@ def riemann_hllc(idir, ng,
 
 
 @njit(cache=True)
+def riemann_hlle(idir, ng,
+                 idens, ixmom, iymom, iener, irhoX, nspec,
+                 lower_solid, upper_solid,
+                 gamma, U_l, U_r):
+    r"""
+    This is the HLLE Riemann solver.  The implementation follows
+    directly out of Toro's book.  Note: this does not handle the
+    transonic rarefaction.
+
+    Parameters
+    ----------
+    idir : int
+        Are we predicting to the edges in the x-direction (1) or y-direction (2)?
+    ng : int
+        The number of ghost cells
+    nspec : int
+        The number of species
+    idens, ixmom, iymom, iener, irhoX : int
+        The indices of the density, x-momentum, y-momentum, internal energy density
+        and species partial densities in the conserved state vector.
+    lower_solid, upper_solid : int
+        Are we at lower or upper solid boundaries?
+    gamma : float
+        Adiabatic index
+    U_l, U_r : ndarray
+        Conserved state on the left and right cell edges.
+
+    Returns
+    -------
+    out : ndarray
+        Conserved flux
+    """
+
+    qx, qy, nvar = U_l.shape
+
+    #returned flux
+    F = np.zeros((qx, qy, nvar))
+    #for starred region
+    F_r = np.zeros((qx, qy, nvar))
+    F_l = np.zeros((qx, qy, nvar))
+
+
+    smallc = 1.e-10
+    smallp = 1.e-10
+
+    U_state = np.zeros(nvar)
+
+    nx = qx - 2 * ng
+    ny = qy - 2 * ng
+    ilo = ng
+    ihi = ng + nx
+    jlo = ng
+    jhi = ng + ny
+
+    for i in range(ilo - 1, ihi + 1):
+        for j in range(jlo - 1, jhi + 1):
+
+            # primitive variable states
+            rho_l = U_l[i, j, idens]
+
+            # un = normal velocity; ut = transverse velocity
+            if (idir == 1):
+                un_l = U_l[i, j, ixmom] / rho_l
+                ut_l = U_l[i, j, iymom] / rho_l
+            else:
+                un_l = U_l[i, j, iymom] / rho_l
+                ut_l = U_l[i, j, ixmom] / rho_l
+
+            rhoe_l = U_l[i, j, iener] - 0.5 * rho_l * (un_l**2 + ut_l**2)
+
+            p_l = rhoe_l * (gamma - 1.0)
+            p_l = max(p_l, smallp)
+
+            rho_r = U_r[i, j, idens]
+
+            if (idir == 1):
+                un_r = U_r[i, j, ixmom] / rho_r
+                ut_r = U_r[i, j, iymom] / rho_r
+            else:
+                un_r = U_r[i, j, iymom] / rho_r
+                ut_r = U_r[i, j, ixmom] / rho_r
+
+            rhoe_r = U_r[i, j, iener] - 0.5 * rho_r * (un_r**2 + ut_r**2)
+
+            p_r = rhoe_r * (gamma - 1.0)
+            p_r = max(p_r, smallp)
+
+            # compute the sound speeds
+            c_l = max(smallc, np.sqrt(gamma * p_l / rho_l))
+            c_r = max(smallc, np.sqrt(gamma * p_r / rho_r))
+
+            # rarefaction
+            S_l = un_l - c_l
+
+            # rarefaction
+            S_r = un_r + c_r
+
+
+            # figure out which region we are in and compute the state and
+            # the interface fluxes using the HLLC Riemann solver
+            if (S_r <= 0.0):
+                # R region
+                U_state[:] = U_r[i, j, :]
+
+                F[i, j, :] = consFlux(idir, gamma, idens, ixmom, iymom, iener, irhoX, nspec,
+                                      U_state)
+           
+            elif (S_r > 0.0 and S_l < 0.0):
+                # find the left starred flux
+                F_l[i, j, :] = consFlux(idir, gamma, idens, ixmom, iymom, iener, irhoX, nspec,
+                                        U_l[i, j, :])
+
+                # find the right starred flux
+                F_r[i, j, :] = consFlux(idir, gamma, idens, ixmom, iymom, iener, irhoX, nspec,
+                                        U_r[i, j, :])
+
+                # the final starred flux
+                F[i, j, :] = (S_r * F_l[i, j, :] - S_l * F_r[i, j, :] + \
+                              S_l * S_r * (U_r[i, j, :] - U_l[i, j, :]))/(S_r - S_l)
+
+                # * region
+                U_state[:] = (S_r * U_r[i, j, :] - S_l * U_l[i, j, :] + \
+                              F_l[i, j, :] - F_r[i, j, :])/(S_r - S_l)
+
+            else:
+                # L region
+                U_state[:] = U_l[i, j, :]
+
+                F[i, j, :] = consFlux(idir, gamma, idens, ixmom, iymom, iener, irhoX, nspec,
+                                      U_state)
+
+            # we should deal with solid boundaries somehow here
+    
+    return F
+
+
+@njit(cache=True)
 def consFlux(idir, gamma, idens, ixmom, iymom, iener, irhoX, nspec, U_state):
     r"""
     Calculate the conservative flux.

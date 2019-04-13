@@ -3,6 +3,10 @@
 [driver]
 max_steps = 200
 tmax = 0.2
+cfl = 0.1
+
+[compressible]
+riemann = HLLE
 
 [io]
 basename = sod_y_
