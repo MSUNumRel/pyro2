@@ -75,49 +75,72 @@ def cons_to_prim(U, gamma, ivars, myg):
     return q
 
 def cons_to_prim_GR(U, gamma, ivars, myg, metric):
-    """ convert an input vector of conserved variables (GR) to primitive variables (GR) M.A.P."""
-    def f_p(p, U, gamma, metric):
-    #calculates pressure
+    """ 
+    Convert an input vector of conserved variables (GR) to primitive variables (GR) M.A.P.
+    Consistent with Radiation Hydrodynamics ...(need author's name)...
+    
+    Input
+    -----
+    U - Vector of conserved variables
+    gamma - ratio of specific heats used in gamma law EOS
+    ivars - variables used to label conserved variables (here it is assumed iD, iS, & itau for D, S, and Tau variables defined in eqn. (5.27) of Baumgarte & Shapiro.  This may change w/ Halvard's naming convention
+    myg - my grid
+    metric - spatial metric established by S. Fromm
+
+    Output
+    ------
+    q - array of primitive variables
+
+    """
+
+    #calculate pressure
+    def f_p(p, q, gamma, metric):
     
     #shortcut variables 
-    upd = U.tau + p + U.d
+    upd = q[:,:ivars.itau] + p + q[:,:ivars.iD]
     
-    gss = gamma_up[1,1]*U.S[1]*U.S[1]    
+    gss = metric.inv_g.xx*q[:,:ivars.iS][1]*q[:,:ivars.iS][1]    
 
-    rho = U.D/upd*np.sqrt(upd**2 - gss)
+    #density in terms of conservative vars and pressure
+    rho = q[:,:ivars.iD]/upd*np.sqrt(upd**2 - gss)
 
-    eps = upd**(-1)*(np.sqrt(upd**2 - gss) - upd/np.sqrt(upd**2 - gss) - U.D)
+    #specific internal energy in terms of conservative vars and pressure
+    eps = q[:,:ivars.iD]**(-1)*(np.sqrt(upd**2 - gss) - upd/np.sqrt(upd**2 - gss) - q[:,:ivars.iD])
 
-        return p - rho*eps*(gamma - 1) #could be be eos call?
+        return p - rho*eps*(gamma - 1) #hard code version of EOS call (for ease of zero finder)
 
+
+    #scratch array for variable calculations
     q = myg.scratch_array(nvar=ivars.nq)
 
-    q[:, :, ivars.ip] = optimize.brentq(f_p,-0.1,1.e13) #upper limit is just ad hoc
-    q[:, :, ivars.irho] = 
-    q[:, :, ivars.iener] = 
+    #solve for pressure numerically
+    q[:, :, ivars.ip] = optimize.brentq(f_p,-0.1,1.e15,args=(q,gamma,metric)) #upper limit is just ad hoc 
 
-    def f_v(v,U,q,metric):
+    #shortcut variables 
+    upd = q[:,:ivars.itau] + q[:, :, ivars.ip] + q[:,:ivars.iD]  
+ 
+    gss = metric.inv_g.xx*q[:,:ivars.iS][1]*q[:,:ivars.iS][1]
 
-        return (U.S - (U.rho + U.rho*U.eps + q[:, :, ivars.ip])*(1 + metric_up[1][1]*v**2)*v)
+    #solve for density 
+    q[:, :, ivars.irho] =  q[:,:ivars.iD]/upd*np.sqrt(upd**2 - gss)
+ 
+    #solve for spec. int. energy
+    q[:, :, ivars.iener] = q[:,:ivars.iD]**(-1)*(np.sqrt(upd**2 - gss) - upd/np.sqrt(upd**2 - gss) - q[:,:ivars.iD])
 
-    q[:, :, ivars.iv] = optimize.brentq(f_v,-0.1,3.e10) #can it be negative?
+    #function calculating velocity
+    def f_v(v,q,metric):
+    #velocity & S relation as used in O'Connor & Ott (2010)
 
-    #left off here Mike
-    q[:, :, ivars.irho] = U[:, :, ivars.idens]
-    q[:, :, ivars.iu] = U[:, :, ivars.ixmom]/U[:, :, ivars.idens]
-    q[:, :, ivars.iv] = U[:, :, ivars.iymom]/U[:, :, ivars.idens]
+        return (q[:,:ivars.iS][1] - (q[:, :, ivars.irho] + q[:, :, ivars.irho]*q[:, :, ivars.iener] + q[:, :, ivars.ip])*(1 - v**2)*v)
 
-    e = (U[:, :, ivars.iener] -
-         0.5*q[:, :, ivars.irho]*(q[:, :, ivars.iu]**2 +
-                                  q[:, :, ivars.iv]**2))/q[:, :, ivars.irho]
+    #solve for velocity numerically (still need to consult Sean w/ this one)
+    q[:, :, ivars.iu] = optimize.brentq(f_v,-0.1,3.e10,args=(q,metric)) #can it be negative?
 
-    q[:, :, ivars.ip] = eos.pres(gamma, q[:, :, ivars.irho], e)
-
-    #????
-    if ivars.naux > 0:
-        for nq, nu in zip(range(ivars.ix, ivars.ix+ivars.naux),
-                          range(ivars.irhox, ivars.irhox+ivars.naux)):
-            q[:, :, nq] = U[:, :, nu]/q[:, :, ivars.irho]
+    #This part is for additional variables to be treated as 'passively advected scalars' should I keep it?
+    #if ivars.naux > 0:
+    #    for nq, nu in zip(range(ivars.ix, ivars.ix+ivars.naux),
+    #                      range(ivars.irhox, ivars.irhox+ivars.naux)):
+    #        q[:, :, nq] = U[:, :, nu]/q[:, :, ivars.irho]
 
     return q
 
