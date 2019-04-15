@@ -77,7 +77,7 @@ def cons_to_prim(U, gamma, ivars, myg):
 def cons_to_prim_GR(U, gamma, ivars, myg, metric):
     """ 
     Convert an input vector of conserved variables (GR) to primitive variables (GR) M.A.P.
-    Consistent with Radiation Hydrodynamics ...(need author's name)...
+    Consistent with Relativistic Hydrodynamics (Rezzolla & Zanotti)
     
     Input
     -----
