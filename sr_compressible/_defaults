@@ -1,0 +1,9 @@
+[driver]
+cfl = 0.8
+
+[sr_compressible]
+riemann = HLLE
+
+
+[eos]
+gamma = 1.4

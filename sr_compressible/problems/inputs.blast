@@ -1,0 +1,33 @@
+# simple inputs files for the SR sod shock tube
+
+[driver]
+max_steps = 1000
+tmax = 0.4
+
+[io]
+basename = sr_sod
+dt_out = 0.05
+
+[mesh]
+nx = 1000
+xmin = -0.5
+xmax = 0.5
+xlboundary = outflow
+xrboundary = outflow
+
+[sod]
+
+dens_left = 0.001
+dens_right = 0.001
+
+u_left = 0.0
+u_right = 0.0
+
+eps_left = 1500.0
+eps_right = 0.015
+
+[eos]
+gamma = 1.67
+
+[sr_compressible]
+riemann = Rusanov
