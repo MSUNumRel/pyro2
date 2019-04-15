@@ -134,7 +134,7 @@ def cons_to_prim_GR(U, gamma, ivars, myg, metric):
         return (q[:,:ivars.iS][1] - (q[:, :, ivars.irho] + q[:, :, ivars.irho]*q[:, :, ivars.iener] + q[:, :, ivars.ip])*(1 - v**2)*v)
 
     #solve for velocity numerically (still need to consult Sean w/ this one)
-    q[:, :, ivars.iu] = optimize.brentq(f_v,-0.1,3.e10,args=(q,metric)) #can it be negative?
+    q[:, :, ivars.iu] = optimize.brentq(f_v,-3.e10,3.e10,args=(q,metric)) #bounds should be between speed of light in either direction
 
     #This part is for additional variables to be treated as 'passively advected scalars' should I keep it?
     #if ivars.naux > 0:
