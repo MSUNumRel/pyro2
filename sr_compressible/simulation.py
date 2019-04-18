@@ -1,3 +1,14 @@
+"""
+    simulation.py
+
+    This script implements a method of lines (MOL) solver for the special-relativistic compressible Euler equations.  The scheme below uses a strong stability preserving Runge-Kutta 2nd-order integration.  The formulation of this solver and code follows closely to:
+
+        * Rezzolla & Zanotti "Relativistic Hydrodynamics" (2013)
+        * David Radice, Lecture+Notes+Code
+          JINA Neutron Star Merger Summer School (2018)
+          https://github.com/dradice/JINA_MSU_School_2018/tree/master/Radice
+"""
+
 import numpy as np
 import matplotlib.pyplot as plt
 from mpl_toolkits.axes_grid1 import AxesGrid
@@ -21,10 +32,14 @@ class Simulation(NullSimulation):
 
     def __init__(self, solver_name, problem_name, rp, timers=None,
                  data_class=patch.CellCenterData1d):
+        """Initialize the special-relativistic compressible hydro simulation.  
+        Pass through parameters to `NullSimulation` while forcing the data 
+        type to be CellCenterData1d.
+        """
         super().__init__(solver_name, problem_name, rp, timers, data_class)
 
     def initialize(self):
-
+        """Initialize the simulation."""
         my_grid = grid_setup_1d(self.rp, ng=2)
 
         # create the variables
@@ -108,21 +123,29 @@ class Simulation(NullSimulation):
         self.dt = cfl*np.min(dx/np.max(np.abs(self.char[:, ng:-ng]), axis=0))
 
     def RHS(self):
+        """Calculate the RHS of the special-relativistic compressible Euler 
+        equations.
+        """
         dx = self.cc_data.grid.dx
         ng = self.cc_data.grid.ng
 
+        # Reconstruct the primitive variabkes at the cell interfaces
         self.reconstruct.interface_states(self.cc_data.grid,
                                           self.V, self.V_l, self.V_r)
 
+        # Calculate conserved variables at the cell interfaces
         self.eqns.prim2con(self.V_l, self.U_l)
         self.eqns.prim2con(self.V_r, self.U_r)
 
+        # Calculate the fluxes at the cell interfaces
         self.eqns.fluxes(self.U_l, self.V_l, self.F_l)
         self.eqns.fluxes(self.U_r, self.V_r, self.F_r)
 
+        # Calculate the characterstic speeds at the interface states
         self.eqns.speeds(self.U_l, self.V_l, self.char_l)
         self.eqns.speeds(self.U_r, self.V_r, self.char_r)
 
+        # Solve the local Riemann problem at the celll interfaces
         self.F[:, 0] = self.F[:, -1] = 0.0
         self.riemann.fluxes(self.U_l[:, :-1], self.U_r[:, 1:],
                             self.V_l[:, :-1], self.V_r[:, 1:],
@@ -130,31 +153,59 @@ class Simulation(NullSimulation):
                             self.char_l[:, :-1], self.char_r[:, 1:],
                             self.F[:, 1:-1])
 
+        # Spatial discretization
         self.dU[:] = 0.0
         self.dU[:] -= np.diff(self.F, axis=1)
         self.dU[:] /= dx
 
+        # Calculate any source terms
         self.eqns.sources(self.U, self.V, self.source)
         self.dU[:] += self.source[:]
 
+        # Don't update the ghost cells
         self.dU[:, :ng] = 0.0
         self.dU[:, -ng:] = 0.0
 
     def apply_BC_hack(self, level):
+        """Convert internal stored variables back to CellCenterData1d.  Pyro 
+        inherenetly is Fortran-esque in its handling of mult-dimensional 
+        arrays (which is highly inefficient in python/numpy which is by 
+        default C-style), so for optimal use, grid data is maninpulated by 
+        interal data structures in this class, and converted back to the 
+        CellCenterData1d patch for application of boundary conditions since 
+        this machinery is already present courtesy of `ArrayIndexer`.
+
+        Parameters
+        ----------
+        level : int
+            Which time level to apply the BC update to
+        """
         ng = self.cc_data.grid.ng
 
+        # Get "pointers" to patch data
         D = self.cc_data.get_var("D")
         S = self.cc_data.get_var("S")
         E = self.cc_data.get_var("E")
 
+        # Copy specified time level data to patch
         D.v()[:] = self.U[level].density[ng:-ng]
         S.v()[:] = self.U[level].momentum[ng:-ng]
         E.v()[:] = self.U[level].energy[ng:-ng]
 
+        # Apply the BCs
         self.cc_data.fill_BC_all()
 
     def save_to_patch(self, level):
+        """Same idea as the BC hack; save internal data to the data patch.
+
+        Parameters
+        ----------
+        level : int
+            Which time level to save to the patch
+        """
         ng = self.cc_data.grid.ng
+
+        # "Pointers" to the variables in the patch
         D = self.cc_data.get_var("D")
         S = self.cc_data.get_var("S")
         E = self.cc_data.get_var("E")
@@ -163,6 +214,7 @@ class Simulation(NullSimulation):
         u = self.cc_data.get_var("u")
         eps = self.cc_data.get_var("eps")
 
+        # Copy internal data to the patch
         D.v()[:] = self.U[level].density[ng:-ng]
         S.v()[:] = self.U[level].momentum[ng:-ng]
         E.v()[:] = self.U[level].energy[ng:-ng]
@@ -172,7 +224,16 @@ class Simulation(NullSimulation):
         eps.v()[:] = self.V.specific_energy[ng:-ng]
 
     def load_from_patch(self, level):
+        """Same idea as the BC hack; load internal data from the data patch.
+
+        Parameters
+        ----------
+        level : int
+            Which time level to load the patch to
+        """
         ng = self.cc_data.grid.ng
+
+        # "Pointers" to the variables in the patch
         D = self.cc_data.get_var("D")
         S = self.cc_data.get_var("S")
         E = self.cc_data.get_var("E")
@@ -181,6 +242,7 @@ class Simulation(NullSimulation):
         u = self.cc_data.get_var("u")
         eps = self.cc_data.get_var("eps")
 
+        # Copy patch tointernal data
         self.U[level].density = D[:]
         self.U[level].momentum = S[:]
         self.U[level].energy = E[:]
@@ -243,21 +305,8 @@ class Simulation(NullSimulation):
         fields = [rho0, v, P, eps]
         field_names = ["\\rho_0", "v", "P", "\\epsilon"]
 
-        # _, axes, cbar_title = plot_tools.setup_axes_1d(myg, len(fields))
-
         _, axs = plt.subplots(2, 2, sharex=True, constrained_layout=True,
                               num=1)
-        # fig = plt.figure(1, (10.5, 2.5))
-        # fig.subplots_adjust(left=0.05, right=0.95)
-        # axs = AxesGrid(fig, 141,
-        #             nrows_ncols=(2, 2),
-        #             share_all=True,
-        #             # cbar_mode="each",
-        #             # cbar_location="top",
-        #             # cbar_pad="10%",
-        #             # cbar_size="25%",
-        #             axes_pad=(0.25, 0.65),
-        #             add_all=True, label_mode="L")
 
         x = myg.x[myg.ng:-myg.ng]
 

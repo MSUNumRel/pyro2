@@ -1,10 +1,31 @@
+"""
+    variables.py
+
+    This script containts `numpy.ndarray` subclasses describing the variables 
+    and vector quantities used in solving hydrodynamic equations.  These 
+    vectors can either be initialized to a specific grid size and later set to 
+    the corresponding variable quantities, or "cast" from an exisiting 
+    `numpy.ndarray`-type to the below types via the `view(new_type)` method.
+"""
 import numpy as np
 
 
 class ConservedVector1D(np.ndarray):
+    """Vector describing the 1D conserved hydro variables."""
 
     def __new__(cls, shape=()):
+        """Create a `ndarray` view based on this vector type.
 
+        Parameters
+        ----------
+        shape : tuple, optional
+            The shape of the grid these variables live on (the default is (), which will create a single vector of the conserved variables)
+
+        Returns
+        -------
+        ConservedVector1D
+            Array of conserved variables
+        """
         return np.zeros((3, *shape), dtype=float).view(cls)
 
     def __array_finalize__(self, obj):
@@ -12,6 +33,7 @@ class ConservedVector1D(np.ndarray):
         if obj is None:
             return
 
+    ### Named properties to access the variables stored in this class ###
     @property
     def density(self):
         return self[0, ...]
@@ -38,23 +60,39 @@ class ConservedVector1D(np.ndarray):
 
 
 class FluxVector1D(ConservedVector1D):
+    """Vector describing the 1D hydro fluxes."""
     pass
 
 
 class SourceVector1D(ConservedVector1D):
+    """Vector describing the 1D hydro sources."""
     pass
 
 
 class PrimitiveVector1D(np.ndarray):
+    """Vector describing the 1D primitive hydro variables."""
 
     def __new__(cls, shape=()):
+        """Create a `ndarray` view based on this vector type.
 
+        Parameters
+        ----------
+        shape : tuple, optional
+            The shape of the grid these variables live on (the default is (), which will create a single vector of the primitive variables)
+
+        Returns
+        -------
+        PrimitiveVector1D
+            Array of primitive variables
+        """
         return np.zeros((3, *shape), dtype=float).view(cls)
 
     def __array_finalize__(self, obj):
         """Required for deriving from `ndarray`."""
         if obj is None:
             return
+
+    ### Named properties to access the variables stored in this class ###
 
     @property
     def density(self):
@@ -82,15 +120,29 @@ class PrimitiveVector1D(np.ndarray):
 
 
 class CharacteristicVector1D(np.ndarray):
+    """Vector describing the 1D hydro characteristic speeds."""
 
     def __new__(cls, shape=()):
+        """Create a `ndarray` view based on this vector type.
 
+        Parameters
+        ----------
+        shape : tuple, optional
+            The shape of the grid these variables live on (the default is (), which will create a single vector of the characteristic speeds)
+
+        Returns
+        -------
+        CharacteristicVector1D
+            Array of characteristic speeds
+        """
         return np.zeros((3, *shape), dtype=float).view(cls)
 
     def __array_finalize__(self, obj):
         """Required for deriving from `ndarray`."""
         if obj is None:
             return
+
+    ### Named properties to access the variables stored in this class ###
 
     @property
     def plus(self):
