@@ -42,6 +42,98 @@ import mesh.boundary as bnd
 import mesh.array_indexer as ai
 
 
+class RadialGrid(object):
+
+    def __init__(self, nx, ng, xmin, xmax, log=True):
+
+        self.nx = nx
+        self.ng = ng
+
+        self.qx = int(2*ng + nx)
+
+        self.log = log
+
+        # domain extrema
+        self.xmin = xmin
+        self.xmax = xmax
+
+        # compute the indices of the block interior (excluding guardcells)
+        self.ilo = self.ng
+        self.ihi = self.ng + self.nx-1
+
+        # center of the grid (for convenience)
+        self.ic = self.ilo + self.nx//2 - 1
+
+        # Setup grid
+        if log:
+            # Make a "linear" grid in log space - easier to compute interfaces
+            lxmin = np.log(xmin)
+            lxmax = np.log(xmax)
+
+            ldx = (lxmax - lxmin)/nx
+
+            lxl = (np.arange(self.qx) - ng)*ldx + lxmin
+            lxr = (np.arange(self.qx) + 1.0 - ng)*ldx + lxmin
+            lx = 0.5*(lxl + lxr)
+
+            self.xl = np.exp(lxl)
+            self.xr = np.exp(lxr)
+            self.x = np.exp(lx)
+            self.dx = self.xr - self.xl
+            self.dxl = self.x - self.xl
+            self.dxr = self.xr - self.x
+
+        else:
+            self.dx = (xmax - xmin)/nx
+
+            self.xl = (np.arange(self.qx) - ng)*self.dx + xmin
+            self.xr = (np.arange(self.qx) + 1.0 - ng)*self.dx + xmin
+            self.x = 0.5*(self.xl + self.xr)
+
+            self.dxl = self.x - self.xl
+            self.dxr = self.xr - self.x
+
+    def scratch_array(self, nvar=1):
+        """
+        return a standard numpy array dimensioned to have the size
+        and number of ghostcells as the parent grid
+        """
+        if nvar == 1:
+            _tmp = np.zeros((self.qx,), dtype=np.float64)
+        else:
+            _tmp = np.zeros((self.qx, nvar), dtype=np.float64)
+        return ai.ArrayIndexer1d(d=_tmp, grid=self)
+
+    def coarse_like(self, N):
+        """
+        return a new grid object coarsened by a factor n, but with
+        all the other properties the same
+        """
+        return RadialGrid(self.nx//N, ng=self.ng, xmin=self.xmin,
+                          xmax=self.xmax, log=self.log)
+
+    def fine_like(self, N):
+        """
+        return a new grid object finer by a factor n, but with
+        all the other properties the same
+        """
+        return RadialGrid(self.nx*N, ng=self.ng, xmin=self.xmin,
+                          xmax=self.xmax, log=self.log)
+
+    def __str__(self):
+        """ print out some basic information about the grid object """
+        return "1-d grid: nx = {}, ng = {}".format(
+            self.nx, self.ng)
+
+    def __eq__(self, other):
+        """ are two grids equivalent? """
+        result = (self.nx == other.nx and self.ng == other.ng and
+                  self.xmin == other.xmin and self.xmax == other.xmax and
+                  self.log == other.log)
+
+        return result
+
+
 class Grid1d(object):
     """
     The 1-d grid class.  The grid object will contain the coordinate

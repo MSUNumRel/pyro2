@@ -1,0 +1,10 @@
+[driver]
+cfl = 1e-2
+
+[gr_radial_solver]
+riemann = Rusanov
+
+
+[eos]
+gamma = 2.75
+K = 3e4

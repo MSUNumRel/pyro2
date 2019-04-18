@@ -50,6 +50,23 @@ class Reconstruct1D(abc.ABC):
         """
         pass
 
+    @abc.abstractmethod
+    def interface_state(self, grid: patch.Grid1d, U, U_l, U_r):
+        """Calculate the values of values at the cell faces
+
+        Parameters
+        ----------
+        grid : patch.Grid1d
+            The grid this data lives on
+        U : array of floats
+            The values in the cells
+        U_l : array of floats
+            [out] The reconstructed left edge values
+        U_r : array of floats
+            [out] The reconstructed right edge values
+        """
+        pass
+
 
 class MinmodReconstruct1D(Reconstruct1D):
     """Piecewise-linear minmod reconstruction."""
@@ -83,3 +100,33 @@ class MinmodReconstruct1D(Reconstruct1D):
         # Use TVD slopes to reconstruct interfaces
         U_l[:, 1:-1] = U[:, 1:-1] - 0.5*slope*dx
         U_r[:, 1:-1] = U[:, 1:-1] + 0.5*slope*dx
+
+    def interface_state(self, grid: patch.Grid1d, U, U_l, U_r):
+        """Calculate the values of values at the cell faces
+
+        Parameters
+        ----------
+        grid : patch.Grid1d
+            The grid this data lives on
+        U : array of floats
+            The values in the cells
+        U_l : array of floats
+            [out] The reconstructed left edge values
+        U_r : array of floats
+            [out] The reconstructed right edge values
+        """
+        # Set outer faces to outer cell values since there are no neighboring
+        # states to compute the reconstruction from
+        U_l[0] = U_r[0] = U[0]
+        U_l[-1] = U_r[-1] = U[-1]
+
+        # Compute the base slopes
+        dx = grid.dx
+        s = np.diff(U)/dx
+
+        # Compute TVD slopes with minmod
+        slope = minmod(s[:-1], s[1:])
+
+        # Use TVD slopes to reconstruct interfaces
+        U_l[1:-1] = U[1:-1] - 0.5*slope*dx
+        U_r[1:-1] = U[1:-1] + 0.5*slope*dx

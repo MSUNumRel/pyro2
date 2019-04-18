@@ -5,4 +5,4 @@
     general-relativistic hydrodynamics solver.
 """
 
-__all__ = ["metric", "tensor", "units", "init_data"]
+__all__ = ["metric", "tensor", "units", "init_data", "hydro"]

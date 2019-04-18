@@ -26,7 +26,8 @@ valid_solvers = ["advection",
                  "incompressible",
                  "lm_atm",
                  "swe",
-                 "sr_compressible"]
+                 "sr_compressible",
+                 "gr_radial_solver"]
 
 
 class Pyro(object):

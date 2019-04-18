@@ -46,12 +46,12 @@ class TOVInitialData(InitialData1D):
         self.eps = np.zeros_like(self.r)
 
         # This will always be zero - just here for convenience
-        self.u = np.zeros_like(self.r)
+        self.v = np.zeros_like(self.r)
 
         # For mapping to a data patch
         self.vars = {
             "density": self.rho0,
-            "velocity": self.u,
+            "velocity": self.v,
             "specific energy": self.eps,
             "mass": self.m,
             "potential": self.phi,
@@ -72,7 +72,8 @@ class TOVInitialData(InitialData1D):
         """
 
         # Use first grid cell as central radius
-        r_c = self.grid.x[self.grid.ng]
+        # r_c = self.grid.x[self.grid.ng]
+        r_c = self.grid.x[0]
 
         # Setup central conditions
         _, eps_c = self.eos.from_density(rho0_c)
@@ -87,7 +88,7 @@ class TOVInitialData(InitialData1D):
         return [phi_c, r_c, m_c]
 
     def rhs_pressure(self, lP, U):
-        """Calculate the RHS of the TOV equations in regards to pressure 
+        """Calculate the RHS of the TOV equations in regards to pressure
         derivatives.
 
         Parameters
@@ -157,11 +158,13 @@ class TOVInitialData(InitialData1D):
         sol = solve_ivp(self.rhs_pressure, [lP_start, lP_end], U0,
                         atol=tol, rtol=tol)
 
+        print("Made initial TOV guess")
         # Extract what we need from the integration result
         phi, r, m = sol.y
         P = np.exp(sol.t)
         rho0, eps = self.eos.from_pressure(P)
 
+        print("Matching to Schwarzschild")
         # Match to Schwarzschild solution at outer radius
         R = r[-1]
         M = m[-1]
@@ -231,7 +234,8 @@ class TOVInitialData(InitialData1D):
         ridx = np.argmax(self.r > R)
         # Generate radial grid
         ng = self.grid.ng
-        r = self.r[ng:ridx]
+        # r = self.r[ng:ridx]
+        r = self.r[:ridx]
 
         sol = solve_ivp(self.radius_derivs, [r[0], r[-1]], U0,
                         atol=tol, rtol=tol, t_eval=r)
@@ -248,11 +252,11 @@ class TOVInitialData(InitialData1D):
         phi += offset
 
         # Store the solution
-        self.phi[ng:ridx] = phi
-        self.m[ng:ridx] = m
-        self.P[ng:ridx] = P
-        self.rho0[ng:ridx] = rho0
-        self.eps[ng:ridx] = eps
+        self.phi[:ridx] = phi
+        self.m[:ridx] = m
+        self.P[:ridx] = P
+        self.rho0[:ridx] = rho0
+        self.eps[:ridx] = eps
 
         # Fill in enclosed mass for outer radii
         M = m[-1]

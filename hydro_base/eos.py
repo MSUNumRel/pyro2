@@ -111,6 +111,74 @@ class IsentropicEOS(abc.ABC):
         """
         pass
 
+    @abc.abstractmethod
+    def pressure(self, rho0):
+        """Calculate the pressure
+
+        Parameters
+        ----------
+        rho0 : float(s)
+            Density
+        eps : float(s)
+            Specific internal energy
+
+        Returns
+        -------
+        P : float
+            The pressure
+        """
+        pass
+
+    @abc.abstractmethod
+    def sound_speed(self, rho0, eps):
+        """Calculate the sound speed
+
+        Parameters
+        ----------
+        rho0 : float(s)
+            Density
+        eps : float(s)
+            Specific internal energy
+
+        Returns
+        -------
+        a : float
+            The sound speed
+        """
+        pass
+
+    @abc.abstractmethod
+    def energy(self, rho0):
+        """Calculate the specific
+
+        Parameters
+        ----------
+        rho0 : float(s)
+            Density
+
+        Returns
+        -------
+        eps : float
+            The specific energy
+        """
+        pass
+
+    @abc.abstractmethod
+    def enthalpy(self, rho0):
+        """Calculate the enthalpy
+
+        Parameters
+        ----------
+        rho0 : float(s)
+            Density
+
+        Returns
+        -------
+        P : float
+            The enthalpy
+        """
+        pass
+
 
 class GammaLawEOS(EOS):
     """A Gamma-Law equation of state."""
@@ -257,3 +325,65 @@ class PolytropicEOS(IsentropicEOS):
         P = self.K*rho0**self.gamma
 
         return rho0, P
+
+    def pressure(self, rho0):
+        """Calculate the pressure
+
+        Parameters
+        ----------
+        rho0 : float(s)
+            Density
+
+        Returns
+        -------
+        P : float
+            The pressure
+        """
+        return self.K*rho0**self.gamma
+
+    def energy(self, rho0):
+        """Calculate the specific
+
+        Parameters
+        ----------
+        rho0 : float(s)
+            Density
+
+        Returns
+        -------
+        eps : float
+            The specific energy
+        """
+        return self.K**self.inv_gamma_m1*rho0**self.gamma_m1
+
+    def enthalpy(self, rho0):
+        """Calculate the enthalpy
+
+        Parameters
+        ----------
+        rho0 : float(s)
+            Density
+
+        Returns
+        -------
+        P : float
+            The enthalpy
+        """
+        return 1.0 + self.gamma*self.K**self.inv_gamma_m1*rho0**self.gamma_m1
+
+    def sound_speed(self, rho0, eps):
+        """Calculate the sound speed
+
+        Parameters
+        ----------
+        rho0 : float(s)
+            Density
+        eps : float(s)
+            Specific internal energy
+
+        Returns
+        -------
+        a : float
+            The sound speed
+        """
+        return np.sqrt((self.gamma_m1*self.gamma*eps)/(self.gamma*eps + 1.0))

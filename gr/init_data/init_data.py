@@ -10,10 +10,10 @@ from mesh import patch
 # Default variable names assumed for CellCenterData1d patches
 _default_var_names = {
     "density": "rho0",
-    "velocity": "u",
+    "velocity": "v",
     "specific energy": "eps",
     "mass": "m",
-    "potential": "phi",
+    "potential": "Phi",
 }
 
 

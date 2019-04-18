@@ -1,10 +1,10 @@
 """
     metric.py
 
-    Implmentation of a generic 3+1 metric and sample derived classes.  The 
-    base `Metric` class contains the spatial metric, lapse, shift vector, and 
-    extrinsic curvature.  These quantities are represented as rank-two tensors 
-    and three-vectors, whether as single vector/tensors or as a grid of 
+    Implmentation of a generic 3+1 metric and sample derived classes.  The
+    base `Metric` class contains the spatial metric, lapse, shift vector, and
+    extrinsic curvature.  These quantities are represented as rank-two tensors
+    and three-vectors, whether as single vector/tensors or as a grid of
     vectors/tensors.  Additional functionality includes routines for lowering/
     raising indices of vectors and tensors, and contractions/scalar products.
 
@@ -25,6 +25,9 @@
 import numpy as np
 
 from gr.tensor import ThreeVector, Tensor
+
+# For convenience
+PI_OVER_TWO = 0.5*np.pi
 
 
 class Metric(object):
@@ -204,7 +207,7 @@ class MinkowskiMetric(Metric):
 class SphericalMetric(Metric):
     """Spherical coordinate metric"""
 
-    def __init__(self, r, theta):
+    def __init__(self, r, theta=PI_OVER_TWO):
         """Instantiate a spherical coordinate metric.
 
         Parameters
@@ -215,8 +218,8 @@ class SphericalMetric(Metric):
             Polar angle
         """
         # Even if these are scalars use as arrays
-        r = np.asarray(r)
-        theta = np.asarray(theta)
+        r = np.asanyarray(r)
+        theta = np.asanyarray(theta)
 
         # Fill spatial metric components
         g = np.zeros((*r.shape, 3, 3), dtype=float).view(Tensor)
@@ -235,16 +238,19 @@ class SphericalMetric(Metric):
 
 class SchwarzschildMetric(Metric):
 
-    def __init__(self, M, r, theta):
+    def __init__(self, M, r, theta=PI_OVER_TWO):
         # Even if these are scalars use as arrays
-        r = np.asarray(r)
-        theta = np.asarray(theta)
+        r = np.asanyarray(r)
+        theta = np.asanyarray(theta)
 
         # Schwarzschild lapse
         alpha = np.sqrt(1.0 - 2.0*M/r)
 
         # Vanishing shift
         beta = np.zeros((*r.shape, 3), dtype=float).view(ThreeVector)
+
+        # Mass associated with this metric
+        self.M = M
 
         # Fill spatial metric components
         g = np.zeros((*r.shape, 3, 3), dtype=float).view(Tensor)
@@ -253,6 +259,45 @@ class SchwarzschildMetric(Metric):
         g.zz = r**2*np.sin(theta)**2
 
         # Vanishing extrinsic curvature
+        K = np.zeros_like(g)
+
+        super().__init__(g, alpha, beta, K)
+
+
+class RGPSMetric(Metric):
+    """Implementation of the Radial-Gauge, Polar Slicing metric found in
+    O'Connor & Ott (2010)"""
+
+    def __init__(self, m, Phi, r, theta=PI_OVER_TWO):
+        # Even if these are scalars use as arrays
+        m = np.asanyarray(m)
+        Phi = np.asarray(Phi)
+        r = np.asanyarray(r)
+        theta = np.asanyarray(theta)
+
+        # RGPS lapse
+        alpha = np.exp(Phi)
+
+        # RGPS X parameter
+        self.X = 1.0/np.sqrt(1.0 - 2.0*m/r)
+
+        # Mass associated with this metric
+        self.m = m
+
+        self.Phi = Phi
+
+        # Vanishing shift
+        beta = np.zeros((*r.shape, 3), dtype=float).view(ThreeVector)
+
+        # Fill spatial metric components
+        g = np.zeros((*r.shape, 3, 3), dtype=float).view(Tensor)
+        g.xx = 1.0/(1.0 - 2.0*m/r)
+        g.yy = r**2
+        g.zz = r**2*np.sin(theta)**2
+
+        # This is not strictly true; the extrinsic curvature in this case is
+        # defined as K_ij = -(1/alpha)(dX/dt), but the curvature is never
+        # explicity used in the RGPS formulation.
         K = np.zeros_like(g)
 
         super().__init__(g, alpha, beta, K)
