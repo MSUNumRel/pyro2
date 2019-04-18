@@ -83,7 +83,11 @@ def cons_to_prim_GR(U, gamma, ivars, myg, metric):
     -----
     U - Vector of conserved variables
     gamma - ratio of specific heats used in gamma law EOS
-    ivars - variables used to label conserved variables (here it is assumed iD, iS, & itau for D, S, and Tau variables defined in eqn. (5.27) of Baumgarte & Shapiro.  This may change w/ Halvard's naming convention
+    ivars - variables used to label conserved variables (Defined in eqn. (5.27) of Baumgarte & Shapiro)
+      D   - .idens
+      S   - .imom
+      tau - .iener
+
     myg - my grid
     metric - spatial metric established by S. Fromm
 
@@ -97,15 +101,15 @@ def cons_to_prim_GR(U, gamma, ivars, myg, metric):
     def f_p(p, q, gamma, metric):
     
     #shortcut variables 
-    upd = q[:,:ivars.itau] + p + q[:,:ivars.iD]
+    upd = q[:,:,ivars.iener] + p + q[:,:,ivars.idens]
     
-    gss = metric.inv_g.xx*q[:,:ivars.iS][1]*q[:,:ivars.iS][1]    
+    gss = metric.inv_g.xx*q[:,:,ivars.imom][1]*q[:,:,ivars.imom][1]    
 
     #density in terms of conservative vars and pressure
-    rho = q[:,:ivars.iD]/upd*np.sqrt(upd**2 - gss)
+    rho = q[:,:,ivars.idens]/upd*np.sqrt(upd**2 - gss)
 
     #specific internal energy in terms of conservative vars and pressure
-    eps = q[:,:ivars.iD]**(-1)*(np.sqrt(upd**2 - gss) - upd/np.sqrt(upd**2 - gss) - q[:,:ivars.iD])
+    eps = q[:,:,ivars.idens]**(-1)*(np.sqrt(upd**2 - gss) - upd/np.sqrt(upd**2 - gss) - q[:,:,ivars.idens])
 
         return p - rho*eps*(gamma - 1) #hard code version of EOS call (for ease of zero finder)
 
@@ -117,21 +121,21 @@ def cons_to_prim_GR(U, gamma, ivars, myg, metric):
     q[:, :, ivars.ip] = optimize.brentq(f_p,-0.1,1.e15,args=(q,gamma,metric)) #upper limit is just ad hoc 
 
     #shortcut variables 
-    upd = q[:,:ivars.itau] + q[:, :, ivars.ip] + q[:,:ivars.iD]  
+    upd = q[:,:,ivars.iener] + q[:, :, ivars.ip] + q[:,:,ivars.idens]  
  
-    gss = metric.inv_g.xx*q[:,:ivars.iS][1]*q[:,:ivars.iS][1]
+    gss = metric.inv_g.xx*q[:,:,ivars.imom][1]*q[:,:,ivars.imom][1]
 
     #solve for density 
-    q[:, :, ivars.irho] =  q[:,:ivars.iD]/upd*np.sqrt(upd**2 - gss)
+    q[:, :, ivars.irho] =  q[:,:,ivars.idens]/upd*np.sqrt(upd**2 - gss)
  
-    #solve for spec. int. energy
-    q[:, :, ivars.iener] = q[:,:ivars.iD]**(-1)*(np.sqrt(upd**2 - gss) - upd/np.sqrt(upd**2 - gss) - q[:,:ivars.iD])
+    #solve for spec. int. energy (change this below)
+    q[:, :, ivars.iener] = q[:,:,ivars.idens]**(-1)*(np.sqrt(upd**2 - gss) - upd/np.sqrt(upd**2 - gss) - q[:,:,ivars.idens])
 
     #function calculating velocity
     def f_v(v,q,metric):
     #velocity & S relation as used in O'Connor & Ott (2010)
 
-        return (q[:,:ivars.iS][1] - (q[:, :, ivars.irho] + q[:, :, ivars.irho]*q[:, :, ivars.iener] + q[:, :, ivars.ip])*(1 - v**2)*v)
+        return (q[:,:,ivars.imom][1] - (q[:, :, ivars.irho] + q[:, :, ivars.irho]*q[:, :, ivars.iener] + q[:, :, ivars.ip])*(1 - v**2)*v)
 
     #solve for velocity numerically (still need to consult Sean w/ this one)
     q[:, :, ivars.iu] = optimize.brentq(f_v,-3.e10,3.e10,args=(q,metric)) #bounds should be between speed of light in either direction
