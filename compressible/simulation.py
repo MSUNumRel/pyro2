@@ -13,7 +13,7 @@ import mesh.boundary as bnd
 from simulation_null import NullSimulation, grid_setup, bc_setup
 import util.plot_tools as plot_tools
 import particles.particles as particles
-import scipy.optimize 
+
 
 class Variables(object):
     """
@@ -74,80 +74,6 @@ def cons_to_prim(U, gamma, ivars, myg):
 
     return q
 
-def cons_to_prim_GR(U, gamma, ivars, myg, metric):
-    """ 
-    Convert an input vector of conserved variables (GR) to primitive variables (GR) M.A.P.
-    Consistent with Relativistic Hydrodynamics (Rezzolla & Zanotti)
-    
-    Input
-    -----
-    U - Vector of conserved variables
-    gamma - ratio of specific heats used in gamma law EOS
-    ivars - variables used to label conserved variables (Defined in eqn. (5.27) of Baumgarte & Shapiro)
-      D   - .idens
-      S   - .imom
-      tau - .iener
-
-    myg - my grid
-    metric - spatial metric established by S. Fromm
-
-    Output
-    ------
-    q - Vector of primitive variables
-
-    """
-    #Mike change U's and q's
-
-    #calculate pressure
-    def f_p(p, q, gamma, metric):
-    
-    #shortcut variables 
-    upd = q[:,ivars.iener] + p + q[:,ivars.idens]
-    
-    gss = metric.inv_g.xx*q[:,ivars.imom]*q[:,ivars.imom]   
-
-    #density in terms of conservative vars and pressure
-    rho = q[:,ivars.idens]/upd*np.sqrt(upd**2 - gss)
-
-    #specific internal energy in terms of conservative vars and pressure
-    eps = q[:,ivars.idens]**(-1)*(np.sqrt(upd**2 - gss) - upd/np.sqrt(upd**2 - gss) - q[:,ivars.idens])
-
-        return p - rho*eps*(gamma - 1) #hard code version of EOS call (for ease of zero finder)
-
-
-    #scratch array for variable calculations
-    q = myg.scratch_array(nvar=ivars.nq)
-
-    #solve for pressure numerically
-    q[:, ivars.ip] = optimize.brentq(f_p,-0.1,1.e15,args=(q,gamma,metric)) #upper limit is just ad hoc 
-
-    #shortcut variables 
-    upd = q[:,ivars.iener] + q[:, ivars.ip] + q[:,ivars.idens]  
- 
-    gss = metric.inv_g.xx*q[:,ivars.imom]*q[:,ivars.imom]
-
-    #solve for density 
-    q[:, ivars.irho] =  q[:,ivars.idens]/upd*np.sqrt(upd**2 - gss)
- 
-    #solve for spec. int. energy (change this below)
-    q[:, ivars.iener] = q[:,ivars.idens]**(-1)*(np.sqrt(upd**2 - gss) - upd/np.sqrt(upd**2 - gss) - q[:,ivars.idens])
-
-    #function calculating velocity
-    def f_v(v,q,metric):
-    #velocity & S relation as used in O'Connor & Ott (2010)
-
-        return (q[:,ivars.imom] - (q[:,ivars.irho] + q[:,ivars.irho]*q[:,ivars.iener] + q[:, ivars.ip])*(1 - v**2)*v)
-
-    #solve for velocity numerically (still need to consult Sean w/ this one)
-    q[:,ivars.iu] = optimize.brentq(f_v,-3.e10,3.e10,args=(q,metric)) #bounds should be between speed of light in either direction
-
-    #This part is for additional variables to be treated as 'passively advected scalars' should I keep it?
-    #if ivars.naux > 0:
-    #    for nq, nu in zip(range(ivars.ix, ivars.ix+ivars.naux),
-    #                      range(ivars.irhox, ivars.irhox+ivars.naux)):
-    #        q[:, :, nq] = U[:, :, nu]/q[:, :, ivars.irho]
-
-    return q
 
 def prim_to_cons(q, gamma, ivars, myg):
     """ convert an input vector of primitive variables to conserved variables """
@@ -169,6 +95,7 @@ def prim_to_cons(q, gamma, ivars, myg):
             U[:, :, nu] = q[:, :, nq]*q[:, :, ivars.irho]
 
     return U
+
 
 class Simulation(NullSimulation):
     """The main simulation class for the corner transport upwind
