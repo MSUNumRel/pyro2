@@ -93,23 +93,24 @@ def cons_to_prim_GR(U, gamma, ivars, myg, metric):
 
     Output
     ------
-    q - array of primitive variables
+    q - Vector of primitive variables
 
     """
+    #Mike change U's and q's
 
     #calculate pressure
     def f_p(p, q, gamma, metric):
     
     #shortcut variables 
-    upd = q[:,:,ivars.iener] + p + q[:,:,ivars.idens]
+    upd = q[:,ivars.iener] + p + q[:,ivars.idens]
     
-    gss = metric.inv_g.xx*q[:,:,ivars.imom][1]*q[:,:,ivars.imom][1]    
+    gss = metric.inv_g.xx*q[:,ivars.imom]*q[:,ivars.imom]   
 
     #density in terms of conservative vars and pressure
-    rho = q[:,:,ivars.idens]/upd*np.sqrt(upd**2 - gss)
+    rho = q[:,ivars.idens]/upd*np.sqrt(upd**2 - gss)
 
     #specific internal energy in terms of conservative vars and pressure
-    eps = q[:,:,ivars.idens]**(-1)*(np.sqrt(upd**2 - gss) - upd/np.sqrt(upd**2 - gss) - q[:,:,ivars.idens])
+    eps = q[:,ivars.idens]**(-1)*(np.sqrt(upd**2 - gss) - upd/np.sqrt(upd**2 - gss) - q[:,ivars.idens])
 
         return p - rho*eps*(gamma - 1) #hard code version of EOS call (for ease of zero finder)
 
@@ -118,27 +119,27 @@ def cons_to_prim_GR(U, gamma, ivars, myg, metric):
     q = myg.scratch_array(nvar=ivars.nq)
 
     #solve for pressure numerically
-    q[:, :, ivars.ip] = optimize.brentq(f_p,-0.1,1.e15,args=(q,gamma,metric)) #upper limit is just ad hoc 
+    q[:, ivars.ip] = optimize.brentq(f_p,-0.1,1.e15,args=(q,gamma,metric)) #upper limit is just ad hoc 
 
     #shortcut variables 
-    upd = q[:,:,ivars.iener] + q[:, :, ivars.ip] + q[:,:,ivars.idens]  
+    upd = q[:,ivars.iener] + q[:, ivars.ip] + q[:,ivars.idens]  
  
-    gss = metric.inv_g.xx*q[:,:,ivars.imom][1]*q[:,:,ivars.imom][1]
+    gss = metric.inv_g.xx*q[:,ivars.imom]*q[:,ivars.imom]
 
     #solve for density 
-    q[:, :, ivars.irho] =  q[:,:,ivars.idens]/upd*np.sqrt(upd**2 - gss)
+    q[:, ivars.irho] =  q[:,ivars.idens]/upd*np.sqrt(upd**2 - gss)
  
     #solve for spec. int. energy (change this below)
-    q[:, :, ivars.iener] = q[:,:,ivars.idens]**(-1)*(np.sqrt(upd**2 - gss) - upd/np.sqrt(upd**2 - gss) - q[:,:,ivars.idens])
+    q[:, ivars.iener] = q[:,ivars.idens]**(-1)*(np.sqrt(upd**2 - gss) - upd/np.sqrt(upd**2 - gss) - q[:,ivars.idens])
 
     #function calculating velocity
     def f_v(v,q,metric):
     #velocity & S relation as used in O'Connor & Ott (2010)
 
-        return (q[:,:,ivars.imom][1] - (q[:, :, ivars.irho] + q[:, :, ivars.irho]*q[:, :, ivars.iener] + q[:, :, ivars.ip])*(1 - v**2)*v)
+        return (q[:,ivars.imom] - (q[:,ivars.irho] + q[:,ivars.irho]*q[:,ivars.iener] + q[:, ivars.ip])*(1 - v**2)*v)
 
     #solve for velocity numerically (still need to consult Sean w/ this one)
-    q[:, :, ivars.iu] = optimize.brentq(f_v,-3.e10,3.e10,args=(q,metric)) #bounds should be between speed of light in either direction
+    q[:,ivars.iu] = optimize.brentq(f_v,-3.e10,3.e10,args=(q,metric)) #bounds should be between speed of light in either direction
 
     #This part is for additional variables to be treated as 'passively advected scalars' should I keep it?
     #if ivars.naux > 0:
