@@ -7,7 +7,8 @@ import compressible as comp
 import compressible.interface as cf
 import mesh.reconstruction as reconstruction
 import mesh.array_indexer as ai
-
+from gr.metric import Metric
+from gr import metric
 
 def flux_cons(ivars, idir, gamma, q):
 
@@ -45,6 +46,9 @@ def fluxes(myd, rp, ivars, solid, tc):
 
     myg = myd.grid
 
+    #create flat metric
+    g = metric.MinkowskiMetric()
+
     gamma = rp.get_param("eos.gamma")
 
     # get the cell-average data
@@ -59,8 +63,8 @@ def fluxes(myd, rp, ivars, solid, tc):
     U_cc[:, :, ivars.iener] = myd.to_centers("energy")
 
     # compute the primitive variables of both the cell-center and averages
-    q_bar = comp.cons_to_prim_GR(U_avg, gamma, ivars, myd.grid) ##cons_to_prim_GR will be called here and immediately below also spatial metric will be taken as an input
-    q_cc = comp.cons_to_prim_GR(U_cc, gamma, ivars, myd.grid) ##added GR terms
+    q_bar = comp.cons_to_prim_GR(U_avg, gamma, ivars, myd.grid,g) ##cons_to_prim_GR will be called here and immediately below also spatial metric will be taken as an input
+    q_cc = comp.cons_to_prim_GR(U_cc, gamma, ivars, myd.grid,g) ##added GR terms
 
     # compute the 4th-order approximation to the cell-average primitive state
     q_avg = myg.scratch_array(nvar=ivars.nq)
