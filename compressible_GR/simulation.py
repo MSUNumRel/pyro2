@@ -47,7 +47,7 @@ class Variables(object):
         # primitive variables
         self.nq = 5 + self.naux
 
-        self.irho0 = 0
+        self.irho = 0
         self.iu = 1
         self.ip = 2
         self.iX = 3
@@ -59,29 +59,8 @@ class Variables(object):
             self.ix = -1
 
 
-def cons_to_prim(U, gamma, ivars, myg):
-    """ convert an input vector of conserved variables to primitive variables """
 
-    q = myg.scratch_array(nvar=ivars.nq)
-
-    q[:, :, ivars.irho0] = U[:, :, ivars.idens]
-    q[:, :, ivars.iu] = U[:, :, ivars.ixmom]/U[:, :, ivars.idens]
-    q[:, :, ivars.iv] = U[:, :, ivars.iymom]/U[:, :, ivars.idens]
-
-    e = (U[:, :, ivars.iener] -
-         0.5*q[:, :, ivars.irho0]*(q[:, :, ivars.iu]**2 +
-                                  q[:, :, ivars.iv]**2))/q[:, :, ivars.irho0]
-
-    q[:, :, ivars.ip] = eos.pres(gamma, q[:, :, ivars.irho0], e)
-
-    if ivars.naux > 0:
-        for nq, nu in zip(range(ivars.ix, ivars.ix+ivars.naux),
-                          range(ivars.irhox, ivars.irhox+ivars.naux)):
-            q[:, :, nq] = U[:, :, nu]/q[:, :, ivars.irho0]
-
-    return q
-
-def cons_to_prim_GR(U, gamma, ivars, myg, metric):
+def cons_to_prim(U, gamma, ivars, myg, metric):
     """ 
     Convert an input vector of conserved variables (GR) to primitive variables (GR) M.A.P.
     Consistent with Relativistic Hydrodynamics (Rezzolla & Zanotti)
@@ -178,23 +157,23 @@ def prim_to_cons(q, gamma, ivars, myg, metric):
     # TODO: Implement the contraction?
     u      =        q[:, ivars.iu].view(ThreeVector)
     lapse  = np.exp(q[:, ivars.ipot])
-    rho0_h =        q[:, ivars.irho0] + eos.rho0(gamma, q[:, ivars.ip]) + 
+    rho_h =        q[:, ivars.irho] + eos.rho(gamma, q[:, ivars.ip]) + 
                             q[:, ivars.ip]
-    W      = rho0_h * W^2 - q[:, ivars.ip]
+    W      = rho_h * W^2 - q[:, ivars.ip]
     v      = X * u.x
 
-    U[:, ivars.idens] = q[:, ivars.iX] * q[:, ivars.irho0] * W
-    U[:, ivars.imom]  = rho0_h * W**2
+    U[:, ivars.idens] = q[:, ivars.iX] * q[:, ivars.irho] * W
+    U[:, ivars.imom]  = rho_h * W**2
     # U[:, ivars.iymom] = q[:, ivars.iv]*U[:, ivars.idens]
 
     rhoe = eos.rhoe(gamma, q[:, ivars.ip])
 
-    U[:, ivars.iener] = rhoe + 0.5*q[:, ivars.irho0]*(q[:, ivars.iu]**2)
+    U[:, ivars.iener] = rhoe + 0.5*q[:, ivars.irho]*(q[:, ivars.iu]**2)
 
     if ivars.naux > 0:
         for nq, nu in zip(range(ivars.ix, ivars.ix+ivars.naux),
                           range(ivars.irhox, ivars.irhox+ivars.naux)):
-            U[:, nu] = q[:, nq]*q[:, ivars.irho0]
+            U[:, nu] = q[:, nq]*q[:, ivars.irho]
 
     return U
 
@@ -355,7 +334,7 @@ class Simulation(NullSimulation):
 
         q = cons_to_prim(self.cc_data.data, gamma, ivars, self.cc_data.grid)
 
-        rho = q[:, :, ivars.irho0]
+        rho = q[:, :, ivars.irho]
         u = q[:, :, ivars.iu]
         v = q[:, :, ivars.iv]
         p = q[:, :, ivars.ip]
