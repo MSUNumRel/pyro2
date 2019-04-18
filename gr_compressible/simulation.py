@@ -1,3 +1,7 @@
+"""
+TODO: Remove one index from all variables, since we are using
+CellCenterData1d and not CellCenterData1d ?
+"""
 from __future__ import print_function
 
 import importlib
@@ -13,6 +17,7 @@ import mesh.boundary as bnd
 from simulation_null import NullSimulation, grid_setup, bc_setup
 import util.plot_tools as plot_tools
 import particles.particles as particles
+from gr.tensor import ThreeVector, Tensor
 
 
 class Variables(object):
@@ -21,14 +26,13 @@ class Variables(object):
     variable by an integer key
     """
     def __init__(self, myd):
-        """myd : CennCenterData1d object"""
+        """myd : CellCenterData1d object"""
         self.nvar = len(myd.names)
 
         # conserved variables -- we set these when we initialize for
         # they match the CellCenterData2d object
         self.idens = myd.names.index("density")
-        self.ivel = myd.names.index("velocity")
-        # self.iymom = myd.names.index("y-momentum")
+        self.imom  = myd.names.index("momentum")
         self.iener = myd.names.index("energy")
 
         # if there are any additional variable, we treat them as
@@ -40,12 +44,13 @@ class Variables(object):
             self.irhox = -1
 
         # primitive variables
-        self.nq = 4 + self.naux
+        self.nq = 5 + self.naux
 
-        self.irho = 0
+        self.irho0 = 0
         self.iu = 1
-        self.iv = 2
-        self.ip = 3
+        self.ip = 2
+        self.iX = 3
+        self.ipot = 4
 
         if self.naux > 0:
             self.ix = 4   # advected scalar
@@ -58,20 +63,20 @@ def cons_to_prim(U, gamma, ivars, myg):
 
     q = myg.scratch_array(nvar=ivars.nq)
 
-    q[:, :, ivars.irho] = U[:, :, ivars.idens]
+    q[:, :, ivars.irho0] = U[:, :, ivars.idens]
     q[:, :, ivars.iu] = U[:, :, ivars.ixmom]/U[:, :, ivars.idens]
     q[:, :, ivars.iv] = U[:, :, ivars.iymom]/U[:, :, ivars.idens]
 
     e = (U[:, :, ivars.iener] -
-         0.5*q[:, :, ivars.irho]*(q[:, :, ivars.iu]**2 +
-                                  q[:, :, ivars.iv]**2))/q[:, :, ivars.irho]
+         0.5*q[:, :, ivars.irho0]*(q[:, :, ivars.iu]**2 +
+                                  q[:, :, ivars.iv]**2))/q[:, :, ivars.irho0]
 
-    q[:, :, ivars.ip] = eos.pres(gamma, q[:, :, ivars.irho], e)
+    q[:, :, ivars.ip] = eos.pres(gamma, q[:, :, ivars.irho0], e)
 
     if ivars.naux > 0:
         for nq, nu in zip(range(ivars.ix, ivars.ix+ivars.naux),
                           range(ivars.irhox, ivars.irhox+ivars.naux)):
-            q[:, :, nq] = U[:, :, nu]/q[:, :, ivars.irho]
+            q[:, :, nq] = U[:, :, nu]/q[:, :, ivars.irho0]
 
     return q
 
@@ -88,24 +93,32 @@ def prim_to_cons(q, gamma, ivars, myg, metric):
         polytropic constant
 
     ivars : Variables object like
-        contains keyword based lookup for indexes of energy, momentum and
-        density """
+        contains keyword based lookup for indexes of both conservative
+        variables U and primitive variables q 
+        """
 
     U = myg.scratch_array(nvar=ivars.nvar)
 
-    U[:, :, ivars.idens] = q[:, :, ivars.irho]
-    U[:, :, ivars.imom] = q[:, :, ivars.iu]*U[:, :, ivars.idens]
-    # U[:, :, ivars.iymom] = q[:, :, ivars.iv]*U[:, :, ivars.idens]
+    # TODO: Implement the contraction?
+    u      =        q[:, ivars.iu].view(ThreeVector)
+    lapse  = np.exp(q[:, ivars.ipot])
+    rho0_h =        q[:, ivars.irho0] + eos.rho0(gamma, q[:, ivars.ip]) + 
+                            q[:, ivars.ip]
+    W      = rho0_h * W^2 - q[:, ivars.ip]
+    v      = X * u.x
 
-    rhoe = eos.rhoe(gamma, q[:, :, ivars.ip])
+    U[:, ivars.idens] = q[:, ivars.iX] * q[:, ivars.irho0] * W
+    U[:, ivars.imom]  = rho0_h * W**2
+    # U[:, ivars.iymom] = q[:, ivars.iv]*U[:, ivars.idens]
 
-    U[:, :, ivars.iener] = rhoe + 0.5*q[:, :, ivars.irho]*(q[:, :, ivars.iu]**2 +
-                                                           q[:, :, ivars.iv]**2)
+    rhoe = eos.rhoe(gamma, q[:, ivars.ip])
+
+    U[:, ivars.iener] = rhoe + 0.5*q[:, ivars.irho0]*(q[:, ivars.iu]**2)
 
     if ivars.naux > 0:
         for nq, nu in zip(range(ivars.ix, ivars.ix+ivars.naux),
                           range(ivars.irhox, ivars.irhox+ivars.naux)):
-            U[:, :, nu] = q[:, :, nq]*q[:, :, ivars.irho]
+            U[:, nu] = q[:, nq]*q[:, ivars.irho0]
 
     return U
 
@@ -266,7 +279,7 @@ class Simulation(NullSimulation):
 
         q = cons_to_prim(self.cc_data.data, gamma, ivars, self.cc_data.grid)
 
-        rho = q[:, :, ivars.irho]
+        rho = q[:, :, ivars.irho0]
         u = q[:, :, ivars.iu]
         v = q[:, :, ivars.iv]
         p = q[:, :, ivars.ip]
