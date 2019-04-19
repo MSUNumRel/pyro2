@@ -85,38 +85,41 @@ def cons_to_prim(U, gamma, ivars, myg, metric):
     #Mike change U's and q's
 
     #calculate pressure
-    def f_p(p, q, gamma, metric):
+    def f_p(p, U, gamma, metric):
     
     #shortcut variables 
-    upd = q[:,ivars.iener] + p + q[:,ivars.idens]
+    upd = U[:,ivars.iener] + p + U[:,ivars.idens]
     
-    gss = metric.inv_g.xx*q[:,ivars.imom]*q[:,ivars.imom]   
+    gss = metric.inv_g.xx*U[:,ivars.imom]*q[:,ivars.imom]   
 
     #density in terms of conservative vars and pressure
-    rho = q[:,ivars.idens]/upd*np.sqrt(upd**2 - gss)
+    rho = U[:,ivars.idens]/upd*np.sqrt(upd**2 - gss)
 
     #specific internal energy in terms of conservative vars and pressure
-    eps = q[:,ivars.idens]**(-1)*(np.sqrt(upd**2 - gss) - upd/np.sqrt(upd**2 - gss) - q[:,ivars.idens])
+    eps = 1./U[:,ivars.idens]*(np.sqrt(upd**2 - gss) - upd/np.sqrt(upd**2 - gss) - U[:,ivars.idens])
 
         return p - rho*eps*(gamma - 1) #hard code version of EOS call (for ease of zero finder)
 
 
-    #scratch array for variable calculations
+    #array to hold newly calculated primitives
     q = myg.scratch_array(nvar=ivars.nq)
 
     #solve for pressure numerically
-    q[:, ivars.ip] = optimize.brentq(f_p,-0.1,1.e15,args=(q,gamma,metric)) #upper limit is just ad hoc 
+    q[:, ivars.ip] = optimize.brentq(f_p,-0.1,1.e15,args=(U,gamma,metric)) #upper limit is just ad hoc 
 
     #shortcut variables 
-    upd = q[:,ivars.iener] + q[:, ivars.ip] + q[:,ivars.idens]  
+    upd = U[:,ivars.iener] + q[:, ivars.ip] + U[:,ivars.idens]  
  
-    gss = metric.inv_g.xx*q[:,ivars.imom]*q[:,ivars.imom]
+    gss = metric.inv_g.xx*U[:,ivars.imom]*U[:,ivars.imom]
 
     #solve for density 
-    q[:, ivars.irho] =  q[:,ivars.idens]/upd*np.sqrt(upd**2 - gss)
+    q[:, ivars.irho] =  U[:,ivars.idens]/upd*np.sqrt(upd**2 - gss)
  
-    #solve for spec. int. energy (change this below)
-    q[:, ivars.iener] = q[:,ivars.idens]**(-1)*(np.sqrt(upd**2 - gss) - upd/np.sqrt(upd**2 - gss) - q[:,ivars.idens])
+    #create variable for spec. int. energy (eps)
+    eps = np.copy(q[:,ivars.irho])
+    
+    #assign eps values
+    eps = 1/U[:,ivars.idens]*(np.sqrt(upd**2 - gss) - upd/np.sqrt(upd**2 - gss) - U[:,ivars.idens])
 
     #function calculating velocity
     def f_v(v,q,metric):
