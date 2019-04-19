@@ -63,8 +63,8 @@ def fluxes(myd, rp, ivars, solid, tc):
     U_cc[:, :, ivars.iener] = myd.to_centers("energy")
 
     # compute the primitive variables of both the cell-center and averages
-    q_bar = comp.cons_to_prim_GR(U_avg, gamma, ivars, myd.grid,g) ##cons_to_prim_GR will be called here and immediately below also spatial metric will be taken as an input
-    q_cc = comp.cons_to_prim_GR(U_cc, gamma, ivars, myd.grid,g) ##added GR terms
+    q_bar = comp.cons_to_prim(U_avg, gamma, ivars, myd.grid,g) ##added GR terms
+    q_cc = comp.cons_to_prim(U_cc, gamma, ivars, myd.grid,g) ##added GR terms
 
     # compute the 4th-order approximation to the cell-average primitive state
     q_avg = myg.scratch_array(nvar=ivars.nq)
