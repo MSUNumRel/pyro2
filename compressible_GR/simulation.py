@@ -67,7 +67,7 @@ def cons_to_prim(U, gamma, ivars, myg, metric):
     
     Input
     -----
-    U - Vector of conserved variables
+    U - vector of conserved variables
     gamma - ratio of specific heats used in gamma law EOS
     ivars - variables used to label conserved variables (Defined in eqn. (5.27) of Baumgarte & Shapiro)
       D   - .idens
@@ -75,15 +75,13 @@ def cons_to_prim(U, gamma, ivars, myg, metric):
       tau - .iener
 
     myg - my grid
-    metric - spatial metric established by S. Fromm
+    metric - spatial metric
 
     Output
     ------
     q - Vector of primitive variables
 
     """
-    #Mike change U's and q's
-
     #calculate pressure
     def f_p(p, U, gamma, metric):
     
@@ -119,18 +117,18 @@ def cons_to_prim(U, gamma, ivars, myg, metric):
     eps = np.copy(q[:,ivars.irho])
     
     #assign eps values
-    eps = 1/U[:,ivars.idens]*(np.sqrt(upd**2 - gss) - upd/np.sqrt(upd**2 - gss) - U[:,ivars.idens])
+    eps = 1./U[:,ivars.idens]*(np.sqrt(upd**2 - gss) - upd/np.sqrt(upd**2 - gss) - U[:,ivars.idens])
 
     #function calculating velocity
-    def f_v(v,q,metric):
+    def f_v(v,U,q):
     #velocity & S relation as used in O'Connor & Ott (2010)
 
-        return (q[:,ivars.imom] - (q[:,ivars.irho] + q[:,ivars.irho]*q[:,ivars.iener] + q[:, ivars.ip])*(1 - v**2)*v)
+        return (U[:,ivars.imom] - (q[:,ivars.irho] + q[:,ivars.irho]*eps + q[:,ivars.ip])*(1 - v**2)*v)
 
-    #solve for velocity numerically (still need to consult Sean w/ this one)
-    q[:,ivars.iu] = optimize.brentq(f_v,-3.e10,3.e10,args=(q,metric)) #bounds should be between speed of light in either direction
+    #solve for velocity numerically
+    q[:,ivars.iu] = optimize.brentq(f_v,-3.e10,3.e10,args=(U,q)) #bounds should be between speed of light in either direction
 
-    #This part is for additional variables to be treated as 'passively advected scalars' should I keep it?
+    #Below is for additional variables to be treated as 'passively advected scalars' should I keep it?
     #if ivars.naux > 0:
     #    for nq, nu in zip(range(ivars.ix, ivars.ix+ivars.naux),
     #                      range(ivars.irhox, ivars.irhox+ivars.naux)):
