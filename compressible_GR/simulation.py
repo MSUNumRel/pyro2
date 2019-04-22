@@ -85,16 +85,16 @@ def cons_to_prim(U, gamma, ivars, myg, metric):
     #calculate pressure
     def f_p(p, U, gamma, metric):
     
-    #shortcut variables 
-    upd = U[:,ivars.iener] + p + U[:,ivars.idens]
-    
-    gss = metric.inv_g.xx*U[:,ivars.imom]*q[:,ivars.imom]   
+        #shortcut variables 
+        upd = U[:,ivars.iener] + p + U[:,ivars.idens]
+        
+        gss = metric.inv_g.xx*U[:,ivars.imom]*q[:,ivars.imom]   
 
-    #density in terms of conservative vars and pressure
-    rho = U[:,ivars.idens]/upd*np.sqrt(upd**2 - gss)
+        #density in terms of conservative vars and pressure
+        rho = U[:,ivars.idens]/upd*np.sqrt(upd**2 - gss)
 
-    #specific internal energy in terms of conservative vars and pressure
-    eps = 1./U[:,ivars.idens]*(np.sqrt(upd**2 - gss) - upd/np.sqrt(upd**2 - gss) - U[:,ivars.idens])
+        #specific internal energy in terms of conservative vars and pressure
+        eps = 1./U[:,ivars.idens]*(np.sqrt(upd**2 - gss) - upd/np.sqrt(upd**2 - gss) - U[:,ivars.idens])
 
         return p - rho*eps*(gamma - 1) #hard code version of EOS call (for ease of zero finder)
 
