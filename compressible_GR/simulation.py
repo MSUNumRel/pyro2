@@ -14,7 +14,8 @@ import compressible.eos as eos
 import compressible.derives as derives
 import compressible.unsplit_fluxes as flx
 import mesh.boundary as bnd
-from simulation_null import NullSimulation, grid_setup, bc_setup
+import mesh.patch as patch
+from simulation_null import NullSimulation, grid_setup_1d, bc_setup_1d
 import util.plot_tools as plot_tools
 import particles.particles as particles
 from gr.tensor import ThreeVector, Tensor
@@ -59,7 +60,6 @@ class Variables(object):
         else:
             self.ix = -1
 
-def calc_matter()
 
 
 def cons_to_prim(U, gamma, ivars, myg, metric):
@@ -197,30 +197,33 @@ class Simulation(NullSimulation):
     compressible hydrodynamics solver
 
     """
+    
+    def __init__(self, *args, data_class=patch.CellCenterData1d, **kwargs):
+        super().__init__(*args, data_class = data_class, **kwargs)
 
     def initialize(self, extra_vars=None, ng=4):
         """
         Initialize the grid and variables for compressible flow and set
         the initial conditions for the chosen problem.
         """
-        my_grid = grid_setup(self.rp, ng=ng)
+        my_grid = grid_setup_1d(self.rp, ng=ng)
         my_data = self.data_class(my_grid)
 
         # define solver specific boundary condition routines
         bnd.define_bc("hse", BC.user, is_solid=False)
         bnd.define_bc("ramp", BC.user, is_solid=False)  # for double mach reflection problem
 
-        bc, bc_xodd, bc_yodd = bc_setup(self.rp)
+        bc, bc_xodd = bc_setup_1d(self.rp)
 
         # are we dealing with solid boundaries? we'll use these for
         # the Riemann solver
-        self.solid = bnd.bc_is_solid(bc)
+        self.solid = bnd.bc_is_solid_1d(bc)
 
         # density and energy
         my_data.register_var("density", bc)
         my_data.register_var("energy", bc)
-        my_data.register_var("x-momentum", bc_xodd)
-        my_data.register_var("y-momentum", bc_yodd)
+        my_data.register_var("momentum", bc_xodd)
+        # my_data.register_var("y-momentum", bc_yodd)
 
         # any extras?
         if extra_vars is not None:
@@ -243,7 +246,7 @@ class Simulation(NullSimulation):
         # some auxillary data that we'll need to fill GC in, but isn't
         # really part of the main solution
         aux_data = self.data_class(my_grid)
-        aux_data.register_var("ymom_src", bc_yodd)
+        # aux_data.register_var("ymom_src", bc_yodd)
         aux_data.register_var("E_src", bc)
         aux_data.create()
         self.aux_data = aux_data
@@ -256,6 +259,7 @@ class Simulation(NullSimulation):
         # initial conditions for the problem
         problem = importlib.import_module("{}.problems.{}".format(
             self.solver_name, self.problem_name))
+        print(problem)
         problem.init_data(self.cc_data, self.rp)
 
         if self.verbose > 0:

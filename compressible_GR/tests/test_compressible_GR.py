@@ -2,7 +2,7 @@ import numpy as np
 from numpy.testing import assert_array_equal
 
 from util import runparams
-import compressible.simulation as sn
+import compressible_GR.simulation as sn
 import pytest
 
 
@@ -27,7 +27,7 @@ class TestSimulation(object):
         self.rp.params["eos.gamma"] = 1.4
         self.rp.params["compressible.grav"] = 1.0
 
-        self.sim = sn.Simulation("compressible", "test", self.rp)
+        self.sim = sn.Simulation("compressible_GR", "test", self.rp)
         self.sim.initialize()
 
     def teardown_method(self):
@@ -42,14 +42,29 @@ class TestSimulation(object):
         ener = self.sim.cc_data.get_var("energy")
         assert ener.min() == 2.5 and ener.max() == 2.5
 
+    def test_prim2con(self):
+        # Test if the conversion from con2prim and reverse gives correct
+        # result
+
+        # U -> q
+        gamma = self.sim.cc_data.get_aux("gamma")
+        q = sn.cons_to_prim(self.sim.cc_data.data, gamma, self.sim.ivars, self.sim.cc_data.grid)
+
+        assert q[:, self.sim.ivars.ip].min() == pytest.approx(1.0) and \
+               q[:, self.sim.ivars.ip].max() == pytest.approx(1.0)
+
+        # q -> U
+        U = sn.prim_to_cons(q, gamma, self.sim.ivars, self.sim.cc_data.grid)
+        assert_array_equal(U, self.sim.cc_data.data)
+
     def test_prim(self):
 
         # U -> q
         gamma = self.sim.cc_data.get_aux("gamma")
         q = sn.cons_to_prim(self.sim.cc_data.data, gamma, self.sim.ivars, self.sim.cc_data.grid)
 
-        assert q[:, :, self.sim.ivars.ip].min() == pytest.approx(1.0) and \
-               q[:, :, self.sim.ivars.ip].max() == pytest.approx(1.0)
+        assert q[:, self.sim.ivars.ip].min() == pytest.approx(1.0) and \
+               q[:, self.sim.ivars.ip].max() == pytest.approx(1.0)
 
         # q -> U
         U = sn.prim_to_cons(q, gamma, self.sim.ivars, self.sim.cc_data.grid)

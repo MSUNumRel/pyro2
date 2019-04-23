@@ -76,7 +76,7 @@ def bc_is_solid_1d(bc):
     """
     return a container class indicating which boundaries are solid walls
     """
-    solid = BCProp(int(bc_solid[bc.xlb]),
+    solid = BCProp_1d(int(bc_solid[bc.xlb]),
                    int(bc_solid[bc.xrb]))
     return solid
 
