@@ -52,6 +52,14 @@ class BCProp(object):
         self.yl = yl_prop
         self.yr = yr_prop
 
+class BCProp_1d(object):
+    """
+    A simple container to hold properties of the boundary conditions.
+    """
+
+    def __init__(self, xl_prop, xr_prop):
+        self.xl = xl_prop
+        self.xr = xr_prop
 
 def bc_is_solid(bc):
     """
@@ -61,6 +69,15 @@ def bc_is_solid(bc):
                    int(bc_solid[bc.xrb]),
                    int(bc_solid[bc.ylb]),
                    int(bc_solid[bc.yrb]))
+    return solid
+
+
+def bc_is_solid_1d(bc):
+    """
+    return a container class indicating which boundaries are solid walls
+    """
+    solid = BCProp(int(bc_solid[bc.xlb]),
+                   int(bc_solid[bc.xrb]))
     return solid
 
 
