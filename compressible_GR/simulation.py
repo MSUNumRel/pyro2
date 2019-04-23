@@ -1,6 +1,6 @@
 """
 TODO: Remove one index from all variables, since we are using
-CellCenterData1d and not CellCenterData1d ?
+CellCenterData1d and not CellCenterData1d
 """
 from __future__ import print_function
 
@@ -50,7 +50,8 @@ class Variables(object):
         self.irho = 0
         self.iu = 1
         self.ip = 2
-        self.iX = 3
+        self.im = 3
+        # self.iX = 3
         self.ipot = 4
 
         if self.naux > 0:
@@ -58,6 +59,7 @@ class Variables(object):
         else:
             self.ix = -1
 
+def calc_matter()
 
 
 def cons_to_prim(U, gamma, ivars, myg, metric):
@@ -74,8 +76,12 @@ def cons_to_prim(U, gamma, ivars, myg, metric):
       S   - .imom
       tau - .iener
 
-    myg - my grid
-    metric - spatial metric
+
+    myg : Grid1D object
+        defines discretization, see mesh.patch.Grid1D
+
+    metric : Metric object
+        defines spatial metric, see gr.metric.Metric
 
     Output
     ------
@@ -151,30 +157,37 @@ def prim_to_cons(q, gamma, ivars, myg, metric):
     ivars : Variables object like
         contains keyword based lookup for indexes of both conservative
         variables U and primitive variables q 
+
+    myg : Grid1D object
+        defines discretization, see mesh.patch.Grid1D
+
+    metric : Metric object
+        defines spatial metric, see gr.metric.Metric
         """
 
     U = myg.scratch_array(nvar=ivars.nvar)
 
-    # TODO: Implement the contraction?
-    u      =        q[:, ivars.iu].view(ThreeVector)
-    lapse  = np.exp(q[:, ivars.ipot])
-    rho_h =        q[:, ivars.irho] + eos.rho(gamma, q[:, ivars.ip]) + 
-                            q[:, ivars.ip]
-    W      = rho_h * W^2 - q[:, ivars.ip]
+    # Isn't it a bit redundant to use threevectors when we work in 1d?
+    u      = q[:, ivars.iu].view(ThreeVector)
+    lapse  = np.exp( q[:, ivars.ipot] )
+    P      = q[:, ivars.ip]
+    rho0   = q[:, ivars.irho]
+    rhoe   = eos.rhoe( gamma, P )
+    rho0_h = rho0 + rhoe + P
+    W      = rho0_h * W^2 - P
+    # see O'Connor and Ott 2010, section 2. 
     v      = X * u.x
+    # see O'Connor and Ott 2010, section 2.
+    X      = rho0_h*W**2 - P
 
-    U[:, ivars.idens] = q[:, ivars.iX] * q[:, ivars.irho] * W
-    U[:, ivars.imom]  = rho_h * W**2
-    # U[:, ivars.iymom] = q[:, ivars.iv]*U[:, ivars.idens]
+    U[:, ivars.idens] = X * rho0 * W
+    U[:, ivars.imom]  = rho0_h * W**2 * v
+    U[:, ivars.iener] = rho0_h * w**2 - P - U[:, ivars.idens] 
 
-    rhoe = eos.rhoe(gamma, q[:, ivars.ip])
-
-    U[:, ivars.iener] = rhoe + 0.5*q[:, ivars.irho]*(q[:, ivars.iu]**2)
-
-    if ivars.naux > 0:
-        for nq, nu in zip(range(ivars.ix, ivars.ix+ivars.naux),
-                          range(ivars.irhox, ivars.irhox+ivars.naux)):
-            U[:, nu] = q[:, nq]*q[:, ivars.irho]
+    # if ivars.naux > 0:
+    #     for nq, nu in zip(range(ivars.ix, ivars.ix+ivars.naux),
+    #             range(ivars.irhox, ivars.irhox+ivars.naux)):
+    #         U[:, nu] = q[:, nq]*q[:, ivars.irho]
 
     return U
 
