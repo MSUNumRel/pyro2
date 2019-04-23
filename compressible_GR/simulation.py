@@ -20,7 +20,7 @@ import util.plot_tools as plot_tools
 import particles.particles as particles
 from gr.tensor import ThreeVector, Tensor
 
-import scipy.optimize 
+from scipy import optimize 
 
 class Variables(object):
     """
