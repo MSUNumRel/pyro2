@@ -22,7 +22,6 @@ class TestSimulation(object):
         self.rp = runparams.RuntimeParameters()
 
         self.rp.params["mesh.nx"] = 8
-        self.rp.params["mesh.ny"] = 8
         self.rp.params["particles.do_particles"] = 0
 
         self.rp.params["eos.gamma"] = 1.4
@@ -61,6 +60,3 @@ class TestSimulation(object):
         gamma = self.sim.cc_data.get_aux("gamma")
         cs = self.sim.cc_data.get_var("soundspeed")
         assert np.all(cs == np.sqrt(gamma))
-
-
-print('GR!!!!!!!!!!!!')
