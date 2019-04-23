@@ -102,14 +102,19 @@ def cons_to_prim(U, gamma, ivars, myg, metric):
         #specific internal energy in terms of conservative vars and pressure
         eps = 1./U[:,ivars.idens]*(np.sqrt(upd**2 - gss) - upd/np.sqrt(upd**2 - gss) - U[:,ivars.idens])
 
+        print('eps = ',gamma)
+
         return p - rho*eps*(gamma - 1) #hard code version of EOS call (for ease of zero finder)
 
-
+    x0 = np.zeros_like(U[:,0])
+  
     #array to hold newly calculated primitives
     q = myg.scratch_array(nvar=ivars.nq)
 
     #solve for pressure numerically
-    q[:, ivars.ip] = optimize.brentq(f_p,-0.1,1.e15,args=(U,gamma,metric)) #upper limit is just ad hoc 
+    q[:, ivars.ip] = optimize.newton(f_p,x0,args=(U,gamma,metric)) #upper limit is just ad hoc 
+
+    #print(q[:, ivars.ip])
 
     #shortcut variables 
     upd = U[:,ivars.iener] + q[:, ivars.ip] + U[:,ivars.idens]  
@@ -132,7 +137,7 @@ def cons_to_prim(U, gamma, ivars, myg, metric):
         return (U[:,ivars.imom] - (q[:,ivars.irho] + q[:,ivars.irho]*eps + q[:,ivars.ip])*(1 - v**2)*v)
 
     #solve for velocity numerically
-    q[:,ivars.iu] = optimize.brentq(f_v,-3.e10,3.e10,args=(U,q)) #bounds should be between speed of light in either direction
+    q[:,ivars.iu] = optimize.newton(f_v,x0,args=(U,q)) #bounds should be between speed of light in either direction
 
     #Below is for additional variables to be treated as 'passively advected scalars' should I keep it?
     if ivars.naux > 0:
