@@ -135,10 +135,10 @@ def cons_to_prim(U, gamma, ivars, myg, metric):
     q[:,ivars.iu] = optimize.brentq(f_v,-3.e10,3.e10,args=(U,q)) #bounds should be between speed of light in either direction
 
     #Below is for additional variables to be treated as 'passively advected scalars' should I keep it?
-    #if ivars.naux > 0:
-    #    for nq, nu in zip(range(ivars.ix, ivars.ix+ivars.naux),
-    #                      range(ivars.irhox, ivars.irhox+ivars.naux)):
-    #        q[:, :, nq] = U[:, :, nu]/q[:, :, ivars.irho]
+    if ivars.naux > 0:
+        for nq, nu in zip(range(ivars.ix, ivars.ix+ivars.naux),
+                          range(ivars.irhox, ivars.irhox+ivars.naux)):
+            q[:, :, nq] = U[:, :, nu]/q[:, :, ivars.irho]
 
     return q
 
@@ -184,10 +184,10 @@ def prim_to_cons(q, gamma, ivars, myg, metric):
     U[:, ivars.imom]  = rho0_h * W**2 * v
     U[:, ivars.iener] = rho0_h * w**2 - P - U[:, ivars.idens] 
 
-    # if ivars.naux > 0:
-    #     for nq, nu in zip(range(ivars.ix, ivars.ix+ivars.naux),
-    #             range(ivars.irhox, ivars.irhox+ivars.naux)):
-    #         U[:, nu] = q[:, nq]*q[:, ivars.irho]
+    if ivars.naux > 0:
+        for nq, nu in zip(range(ivars.ix, ivars.ix+ivars.naux),
+                range(ivars.irhox, ivars.irhox+ivars.naux)):
+            U[:, nu] = q[:, nq]*q[:, ivars.irho]
 
     return U
 
