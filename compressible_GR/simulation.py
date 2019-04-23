@@ -30,6 +30,7 @@ class Variables(object):
     def __init__(self, myd):
         """myd : CellCenterData1d object"""
         self.nvar = len(myd.names)
+        print(myd.names)
 
         # conserved variables -- we set these when we initialize for
         # they match the CellCenterData2d object
@@ -39,7 +40,7 @@ class Variables(object):
 
         # if there are any additional variable, we treat them as
         # passively advected scalars
-        self.naux = self.nvar - 4
+        self.naux = self.nvar - 3
         if self.naux > 0:
             self.irhox = 4
         else:
@@ -52,7 +53,6 @@ class Variables(object):
         self.iu = 1
         self.ip = 2
         self.im = 3
-        # self.iX = 3
         self.ipot = 4
 
         if self.naux > 0:
@@ -172,22 +172,22 @@ def prim_to_cons(q, gamma, ivars, myg, metric):
 
     U = myg.scratch_array(nvar=ivars.nvar)
 
-    # Isn't it a bit redundant to use threevectors when we work in 1d?
-    u      = q[:, ivars.iu].view(ThreeVector)
+    v      = q[:, ivars.iu]
     lapse  = np.exp( q[:, ivars.ipot] )
     P      = q[:, ivars.ip]
     rho0   = q[:, ivars.irho]
     rhoe   = eos.rhoe( gamma, P )
     rho0_h = rho0 + rhoe + P
-    W      = rho0_h * W^2 - P
+    W      = np.sqrt(1 - v**2)
+
     # see O'Connor and Ott 2010, section 2. 
-    v      = X * u.x
-    # see O'Connor and Ott 2010, section 2.
     X      = rho0_h*W**2 - P
+    # see O'Connor and Ott 2010, section 2.
+    v_r    = v / X
 
     U[:, ivars.idens] = X * rho0 * W
     U[:, ivars.imom]  = rho0_h * W**2 * v
-    U[:, ivars.iener] = rho0_h * w**2 - P - U[:, ivars.idens] 
+    U[:, ivars.iener] = rho0_h * W**2 - P - U[:, ivars.idens] 
 
     if ivars.naux > 0:
         for nq, nu in zip(range(ivars.ix, ivars.ix+ivars.naux),
