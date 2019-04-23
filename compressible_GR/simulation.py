@@ -138,7 +138,7 @@ def cons_to_prim(U, gamma, ivars, myg, metric):
     if ivars.naux > 0:
         for nq, nu in zip(range(ivars.ix, ivars.ix+ivars.naux),
                           range(ivars.irhox, ivars.irhox+ivars.naux)):
-            q[:, :, nq] = U[:, :, nu]/q[:, :, ivars.irho]
+            q[:, nq] = U[:, nu]/q[:, ivars.irho]
 
     return q
 
@@ -348,10 +348,10 @@ class Simulation(NullSimulation):
 
         q = cons_to_prim(self.cc_data.data, gamma, ivars, self.cc_data.grid)
 
-        rho = q[:, :, ivars.irho]
-        u = q[:, :, ivars.iu]
-        v = q[:, :, ivars.iv]
-        p = q[:, :, ivars.ip]
+        rho = q[:, ivars.irho]
+        u = q[:, ivars.iu]
+        v = q[:, ivars.iv]
+        p = q[:, ivars.ip]
         e = eos.rhoe(gamma, p)/rho
 
         magvel = np.sqrt(u**2 + v**2)
