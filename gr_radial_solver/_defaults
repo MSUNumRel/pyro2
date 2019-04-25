@@ -1,10 +1,17 @@
 [driver]
-cfl = 1e-2
+cfl = 0.9
 
 [gr_radial_solver]
-riemann = Rusanov
+riemann = HLLE
 
 
 [eos]
 gamma = 2.75
 K = 3e4
+
+[atmosphere]
+rho0 = 1e-8
+eps = 1e-8
+
+[gr]
+evolve_metric = 0

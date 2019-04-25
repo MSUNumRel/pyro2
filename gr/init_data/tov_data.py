@@ -73,7 +73,8 @@ class TOVInitialData(InitialData1D):
 
         # Use first grid cell as central radius
         # r_c = self.grid.x[self.grid.ng]
-        r_c = self.grid.x[0]
+        r_c = self.grid.x_i[self.grid.ilo+1]
+        print("Center radius: {:.2e}".format(r_c))
 
         # Setup central conditions
         _, eps_c = self.eos.from_density(rho0_c)
@@ -228,35 +229,45 @@ class TOVInitialData(InitialData1D):
         # Make sure that the outer radius is contained within the grid with at
         # least one ghost zone past the outer radius
         R = r_i[-1]
-        assert R < self.r[-1]
+        assert R < self.r[-1], "Max radius is {:.2e} is not in grid with (max r = {:.2e}".format(R, r_i[-1])
 
         # Find the first grid cell past the outer radius
         ridx = np.argmax(self.r > R)
         # Generate radial grid
         ng = self.grid.ng
-        # r = self.r[ng:ridx]
-        r = self.r[:ridx]
+        r = self.r[ng:ridx]
+        r_pts = self.grid.x_i[ng+1:ridx+1]
+        # r = self.r[:ridx]
 
-        sol = solve_ivp(self.radius_derivs, [r[0], r[-1]], U0,
-                        atol=tol, rtol=tol, t_eval=r)
+        sol = solve_ivp(self.radius_derivs, [r_pts[0], r_pts[-1]], U0,
+                        atol=tol, rtol=tol, t_eval=r_pts)
 
+        print("Solved to grid")
         phi, m, P = sol.y
+        r_sol = sol.t
         rho0, eps = self.eos.from_pressure(P)
 
         # Match to Schwarzschild solution at outer radius
-        R = r[-1]
+        R = r_pts[-1]
         M = m[-1]
         phi_R = 0.5*np.log(1.0 - 2.0*M/R)
 
         offset = phi_R - phi[-1]
         phi += offset
 
+        # Interpolators
+        phi_func = CubicSpline(r_sol, phi, extrapolate=True)
+        m_func = CubicSpline(r_sol, m, extrapolate=True)
+        P_func = CubicSpline(r_sol, P, extrapolate=True)
+        rho0_func = CubicSpline(r_sol, rho0, extrapolate=True)
+        eps_func = CubicSpline(r_sol, eps, extrapolate=True)
+
         # Store the solution
-        self.phi[:ridx] = phi
-        self.m[:ridx] = m
-        self.P[:ridx] = P
-        self.rho0[:ridx] = rho0
-        self.eps[:ridx] = eps
+        self.phi[ng:ridx] = phi_func(r_pts)
+        self.m[ng:ridx] = m_func(r_pts)
+        self.P[ng:ridx] = P_func(r_pts)
+        self.rho0[ng:ridx] = rho0_func(r_pts)
+        self.eps[ng:ridx] = eps_func(r_pts)
 
         # Fill in enclosed mass for outer radii
         M = m[-1]

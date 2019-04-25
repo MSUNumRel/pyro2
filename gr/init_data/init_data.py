@@ -13,7 +13,7 @@ _default_var_names = {
     "velocity": "v",
     "specific energy": "eps",
     "mass": "m",
-    "potential": "Phi",
+    "potential": "phi",
 }
 
 

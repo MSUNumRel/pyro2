@@ -12,7 +12,7 @@ from hydro_base.variables import ConservedVector1D, PrimitiveVector1D, \
 
 from hydro_base.eos import IsentropicEOS
 
-from mesh.patch import Grid1d
+from mesh.patch import Grid1d, RadialGrid
 
 from gr.metric import Metric, RGPSMetric
 

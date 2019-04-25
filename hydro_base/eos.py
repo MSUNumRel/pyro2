@@ -369,7 +369,7 @@ class PolytropicEOS(IsentropicEOS):
         P : float
             The enthalpy
         """
-        return 1.0 + self.gamma*self.K**self.inv_gamma_m1*rho0**self.gamma_m1
+        return 1.0 + self.gamma*self.K*self.inv_gamma_m1*rho0**self.gamma_m1
 
     def sound_speed(self, rho0, eps):
         """Calculate the sound speed
@@ -386,4 +386,5 @@ class PolytropicEOS(IsentropicEOS):
         a : float
             The sound speed
         """
-        return np.sqrt((self.gamma_m1*self.gamma*eps)/(self.gamma*eps + 1.0))
+        # return np.sqrt((self.gamma_m1*self.gamma*eps)/(self.gamma*eps + 1.0))
+        return self.gamma*self.K*rho0**(self.gamma_m1)

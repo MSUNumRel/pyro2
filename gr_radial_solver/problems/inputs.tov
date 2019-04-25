@@ -2,26 +2,28 @@
 
 [driver]
 max_steps = 2000
-tmax = 0.4
+tmax = 10.0
 
 [io]
 basename = gr_tov
 dt_out = 0.05
 
 [mesh]
-nx = 100
-xmin = 1e4
+nx = 500
+xmin = 1e3
 xmax = 15e5
 xlboundary = outflow
 xrboundary = outflow
 
 [tov]
-
-rho0_c = 1.28e-3
+rho0_c = 1.85e15
 
 [eos]
 gamma = 2.0
-K = 100.0
+K = 1e2
 
 [gr_radial_solver]
-riemann = Rusanov
+riemann = HLLE
+
+[gr]
+evolve_metric = 0

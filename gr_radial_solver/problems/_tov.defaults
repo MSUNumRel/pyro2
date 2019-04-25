@@ -14,11 +14,17 @@ xmin = 2e3
 xmax = 15e5
 xlboundary = outflow
 xrboundary = outflow
+nzones=1000
+ncenter=30
+nghost=4
+dr_center=0.5e5
+dr=1e4
+r_const=15e5
+r_max=20e5
 
 [tov]
-
-rho0_c = 2e15
+rho0_c = 1.4e15
 
 [eos]
-gamma = 2.75
+gamma = 2.0
 K = 3e4

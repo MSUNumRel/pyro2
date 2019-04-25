@@ -1,3 +1,3 @@
-__all__ = ["simulation"]
+__all__ = ["simulation", "custom_grid"]
 
 from .simulation import Simulation
