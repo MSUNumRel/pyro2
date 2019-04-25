@@ -111,15 +111,29 @@ def cons_to_prim(U, gamma, ivars, myg, metric):
     #print(U[:,ivars.iener])
     #print(U[:,ivars.imom])
 
-
-  
     #array to hold newly calculated primitives
     q = myg.scratch_array(nvar=ivars.nq)
+
+    #integrate to find mass enclosed O'Connor & Ott 2010 Eqn. (4)
+   
+    #Tau plus D 
+    tpd = U[:,ivars.idens] + U[:,ivars.iener]
+
+    for i in range(0,len(q[:,ivars.im])):
+        q[i,ivars.im] = 4*np.pi*np.trapz(tpd[0:i]*myg.x[0:i]*myg.x[0:i],myg.x[0:i])
+  
+    #X factor defined in " " Eqn. (2)  
+    X = np.zeros_like(q[:,ivars.im])
+    X[1:] = 1/np.sqrt(1 - 2*q[1:,ivars.im]/myg.x[1:])
+
+    #scale by X to match between Ranolla & O'Connor
+    U[:,ivars.idens] = X*U[:,ivars.idens]
 
     #solve for pressure numerically
     for i in range(0,len(U[:,ivars.idens])):
         q[i, ivars.ip] = optimize.brentq(f_p,-0.1,1.e20,args=(U,gamma,metric,i)) #different limit b/c of limits?
 
+   
     #shortcut variables 
     upd = U[:,ivars.iener] + q[:, ivars.ip] + U[:,ivars.idens]  
  
@@ -193,7 +207,7 @@ def prim_to_cons(q, gamma, ivars, myg, metric):
 
     # see O'Connor and Ott 2010, section 2. 
     X      = rho0_h*W**2 - P
-    X = X/X #This is just a hack need to change
+    #X = X/X #This is just a hack need to change
     # see O'Connor and Ott 2010, section 2.
     v_r    = v / X
 
