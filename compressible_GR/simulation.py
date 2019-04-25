@@ -105,6 +105,13 @@ def cons_to_prim(U, gamma, ivars, myg, metric):
         return p - rho*eps*(gamma - 1) #hard code version of EOS call (for ease of zero finder)
 
     #x0 = np.zeros_like(U[:,0])
+
+    #print('Ucon2prim')
+    #print(U[:,ivars.idens])
+    #print(U[:,ivars.iener])
+    #print(U[:,ivars.imom])
+
+
   
     #array to hold newly calculated primitives
     q = myg.scratch_array(nvar=ivars.nq)
@@ -131,20 +138,11 @@ def cons_to_prim(U, gamma, ivars, myg, metric):
     def f_v(v,U,q,i):
         #velocity & S relation as used in O'Connor & Ott (2010)
 
-        #return (U[i,ivars.imom] - (q[i,ivars.irho] + q[i,ivars.irho]*eps[i] + q[i,ivars.ip])*(1 - v**2)*v)
-        return (U[i,ivars.imom] - (eps[i] + q[i,ivars.ip])*(1 - v**2)*v)
+        return (U[i,ivars.imom] - (q[i,ivars.irho] + q[i,ivars.irho]*eps[i] + q[i,ivars.ip])*(1 - v**2)*v)
 
     #solve for velocity numerically
     for i in range(0,len(U[:,ivars.idens])):
         q[i, ivars.iu] = optimize.brentq(f_v,-0.99,0.99,args=(U,q,i)) #different limit b/c of limits?
-
-    print(U[:, ivars.idens])
-    print(U[:, ivars.imom])
-    print(U[:, ivars.iener])
-
-    print(q[:, ivars.irho]) 
-    print(q[:, ivars.iu])
-    print(q[:, ivars.ip])
 
     #Below is for additional variables to be treated as 'passively advected scalars' should I keep it?
     if ivars.naux > 0:
@@ -177,6 +175,12 @@ def prim_to_cons(q, gamma, ivars, myg, metric):
         defines spatial metric, see gr.metric.Metric
         """
 
+    #print('qprim2con')
+    #print(q[:,ivars.idens])
+    #print(q[:,ivars.iu])
+    #print(q[:,ivars.ip])
+
+
     U = myg.scratch_array(nvar=ivars.nvar)
 
     v      = q[:, ivars.iu]
@@ -189,8 +193,14 @@ def prim_to_cons(q, gamma, ivars, myg, metric):
 
     # see O'Connor and Ott 2010, section 2. 
     X      = rho0_h*W**2 - P
+    X = X/X #This is just a hack need to change
     # see O'Connor and Ott 2010, section 2.
     v_r    = v / X
+
+    #print('X')
+    #print(X)
+    #print(rho0)
+    #print(W)
 
     U[:, ivars.idens] = X * rho0 * W
     U[:, ivars.imom]  = rho0_h * W**2 * v
