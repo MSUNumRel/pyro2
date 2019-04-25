@@ -1,5 +1,5 @@
 import numpy as np
-from numpy.testing import assert_array_equal
+from numpy.testing import assert_array_equal, assert_almost_equal
 
 from gr.metric import MinkowskiMetric
 from util import runparams
@@ -60,8 +60,7 @@ class TestSimulation(object):
         # q -> U
         U = sn.prim_to_cons(q, gamma, self.sim.ivars,
                 self.sim.cc_data.grid, metric)
-        assert_array_equal(U, self.sim.cc_data.data)
-
+        assert_almost_equal(U, self.sim.cc_data.data)
 
     # def test_derives(self):
 
