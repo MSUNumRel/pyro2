@@ -105,13 +105,6 @@ def cons_to_prim(U, gamma, ivars, myg, metric):
 
         return p - rho*eps*(gamma - 1) #hard code version of EOS call (for ease of zero finder)
 
-    #x0 = np.zeros_like(U[:,0])
-
-    #print('Ucon2prim')
-    #print(U[:,ivars.idens])
-    #print(U[:,ivars.iener])
-    #print(U[:,ivars.imom])
-
     #array to hold newly calculated primitives
     q = myg.scratch_array(nvar=ivars.nq)
 
@@ -145,19 +138,10 @@ def cons_to_prim(U, gamma, ivars, myg, metric):
  
     #X factor defined in " " Eqn. (2) (calculating only interior zones) 
    
-    #print(q[id+1:,ivars.im])
-    #print(myg.x[id+1:])
-    #print(-2*q[id+1:,ivars.im]/myg.x[id+1:])
-
- 
-    #print(1 - 2*q[id+1:,ivars.im]/myg.x[id+1:])
-
     #Gravitational constant divided by speed of light squared to convert between mass and length
     Gc2 = 6.67e-8 / 9.e20
     #I think I need to worry about units here...
     q[id+1:,ivars.iX] = 1/np.sqrt(1 - 2*Gc2*q[id+1:,ivars.im]/myg.x[id+1:])
-
-    print(q[id+1:,ivars.iX])
 
     #Reflective BCs
     q[:id+1,ivars.iX] = q[id+1:2*(id+1),ivars.iX][::-1]
@@ -192,7 +176,7 @@ def cons_to_prim(U, gamma, ivars, myg, metric):
 
     #solve for velocity numerically
     for i in range(0,len(U[:,ivars.idens])):
-        q[i, ivars.iu] = optimize.brentq(f_v,-0.99,0.99,args=(U,q,i),maxiter=1000) #different limit b/c of limits?
+        q[i, ivars.iu] = optimize.brentq(f_v,-0.5,0.5,args=(U,q,i),maxiter=1000) #good to within 0.5c
 
     #Below is for additional variables to be treated as 'passively advected scalars' should I keep it?
     if ivars.naux > 0:
@@ -225,12 +209,6 @@ def prim_to_cons(q, gamma, ivars, myg, metric):
         defines spatial metric, see gr.metric.Metric
         """
 
-    #print('qprim2con')
-    #print(q[:,ivars.idens])
-    #print(q[:,ivars.iu])
-    #print(q[:,ivars.ip])
-
-
     U = myg.scratch_array(nvar=ivars.nvar)
 
     v      = q[:, ivars.iu]
@@ -244,14 +222,8 @@ def prim_to_cons(q, gamma, ivars, myg, metric):
     # see O'Connor and Ott 2010, section 2. 
     #X      = rho0_h*W**2 - P
     X      = q[:, ivars.iX]
-    #X = X/X #This is just a hack need to change
     # see O'Connor and Ott 2010, section 2.
     v_r    = v / X
-
-    #print('X')
-    #print(X)
-    #print(rho0)
-    #print(W)
 
     U[:, ivars.idens] = X * rho0 * W
     U[:, ivars.imom]  = rho0_h * W**2 * v
