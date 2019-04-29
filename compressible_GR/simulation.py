@@ -40,20 +40,21 @@ class Variables(object):
 
         # if there are any additional variable, we treat them as
         # passively advected scalars
-        self.naux = self.nvar - 3
+        self.naux = self.nvar - 2 # 3
         if self.naux > 0:
-            self.irhox = 4
+            self.irhox = 2 #4
         else:
             self.irhox = -1
 
         # primitive variables
-        self.nq = 5 + self.naux
+        self.nq = 6 + self.naux #5 + self.nau
 
         self.irho = 0
         self.iu = 1
         self.ip = 2
         self.im = 3
         self.ipot = 4
+        self.iX = 5
 
         if self.naux > 0:
             self.ix = 4   # advected scalar
@@ -64,7 +65,7 @@ class Variables(object):
 
 def cons_to_prim(U, gamma, ivars, myg, metric):
     """ 
-    Convert an input vector of conserved variables (GR) to primitive variables (GR) M.A.P.
+    Convert an input vector of conserved variables (GR) to primitive variables (GR)
     Consistent with Relativistic Hydrodynamics (Rezzolla & Zanotti)
     
     Input
@@ -119,19 +120,54 @@ def cons_to_prim(U, gamma, ivars, myg, metric):
     #Tau plus D 
     tpd = U[:,ivars.idens] + U[:,ivars.iener]
 
-    for i in range(0,len(q[:,ivars.im])):
-        q[i,ivars.im] = 4*np.pi*np.trapz(tpd[0:i]*myg.x[0:i]*myg.x[0:i],myg.x[0:i])
-  
-    #X factor defined in " " Eqn. (2)  
-    X = np.zeros_like(q[:,ivars.im])
-    X[1:] = 1/np.sqrt(1 - 2*q[1:,ivars.im]/myg.x[1:])
+    #mask to find ghost zones
+    ghost = np.where(myg.x < 0)
+    
+    #index of first interior zone
+    id = len(ghost[0]) - 1
 
-    #scale by X to match between Ranolla & O'Connor
-    U[:,ivars.idens] = X*U[:,ivars.idens]
+    #help for integrating from origin
+    tempx = myg.x[id]
+    myg.x[id] = 0
+    temptpd = tpd[id]
+    tpd[id] = 0
+
+    #mass integration
+    for i in range(id,len(q[:,ivars.im])):
+        q[i,ivars.im] = 4*np.pi*np.trapz(tpd[id:i+1]*myg.x[id:i+1]*myg.x[id:i+1],myg.x[id:i+1])
+
+    #return to original grid value
+    myg.x[id] = tempx
+    tpd[id] = temptpd  
+
+    #reflective BCs
+    q[:id+1,ivars.im] = q[id+1:2*(id+1),ivars.im][::-1]
+ 
+    #X factor defined in " " Eqn. (2) (calculating only interior zones) 
+   
+    #print(q[id+1:,ivars.im])
+    #print(myg.x[id+1:])
+    #print(-2*q[id+1:,ivars.im]/myg.x[id+1:])
+
+ 
+    #print(1 - 2*q[id+1:,ivars.im]/myg.x[id+1:])
+
+    #Gravitational constant divided by speed of light squared to convert between mass and length
+    Gc2 = 6.67e-8 / 9.e20
+    #I think I need to worry about units here...
+    q[id+1:,ivars.iX] = 1/np.sqrt(1 - 2*Gc2*q[id+1:,ivars.im]/myg.x[id+1:])
+
+    print(q[id+1:,ivars.iX])
+
+    #Reflective BCs
+    q[:id+1,ivars.iX] = q[id+1:2*(id+1),ivars.iX][::-1]
+
+    #scale by X to match between Rezzolla & Zanotti and O'Connor & Ott
+    U[:,ivars.idens] = q[:,ivars.iX]*U[:,ivars.idens]
 
     #solve for pressure numerically
     for i in range(0,len(U[:,ivars.idens])):
-        q[i, ivars.ip] = optimize.brentq(f_p,-0.1,1.e20,args=(U,gamma,metric,i)) #different limit b/c of limits?
+        q[i, ivars.ip] = optimize.brentq(f_p,-0.1,1.e20,args=(U,gamma,metric,i),maxiter=1000) #different limit b/c of units?
 
    
     #shortcut variables 
@@ -156,7 +192,7 @@ def cons_to_prim(U, gamma, ivars, myg, metric):
 
     #solve for velocity numerically
     for i in range(0,len(U[:,ivars.idens])):
-        q[i, ivars.iu] = optimize.brentq(f_v,-0.99,0.99,args=(U,q,i)) #different limit b/c of limits?
+        q[i, ivars.iu] = optimize.brentq(f_v,-0.99,0.99,args=(U,q,i),maxiter=1000) #different limit b/c of limits?
 
     #Below is for additional variables to be treated as 'passively advected scalars' should I keep it?
     if ivars.naux > 0:
@@ -206,7 +242,8 @@ def prim_to_cons(q, gamma, ivars, myg, metric):
     W      = np.sqrt(1 - v**2)
 
     # see O'Connor and Ott 2010, section 2. 
-    X      = rho0_h*W**2 - P
+    #X      = rho0_h*W**2 - P
+    X      = q[:, ivars.iX]
     #X = X/X #This is just a hack need to change
     # see O'Connor and Ott 2010, section 2.
     v_r    = v / X
