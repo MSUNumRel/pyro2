@@ -1,3 +1,7 @@
+"""
+TODO: Remove one index from all variables, since we are using
+CellCenterData1d and not CellCenterData1d
+"""
 from __future__ import print_function
 
 import importlib
@@ -10,10 +14,13 @@ import compressible.eos as eos
 import compressible.derives as derives
 import compressible.unsplit_fluxes as flx
 import mesh.boundary as bnd
-from simulation_null import NullSimulation, grid_setup, bc_setup
+import mesh.patch as patch
+from simulation_null import NullSimulation, grid_setup_1d, bc_setup_1d
 import util.plot_tools as plot_tools
 import particles.particles as particles
+from gr.tensor import ThreeVector, Tensor
 
+from scipy import optimize 
 
 class Variables(object):
     """
@@ -21,31 +28,33 @@ class Variables(object):
     variable by an integer key
     """
     def __init__(self, myd):
-        """myd : CennCenterData1d object"""
+        """myd : CellCenterData1d object"""
         self.nvar = len(myd.names)
+        print(myd.names)
 
         # conserved variables -- we set these when we initialize for
         # they match the CellCenterData2d object
         self.idens = myd.names.index("density")
-        self.ivel = myd.names.index("velocity")
-        # self.iymom = myd.names.index("y-momentum")
+        self.imom  = myd.names.index("momentum")
         self.iener = myd.names.index("energy")
 
         # if there are any additional variable, we treat them as
         # passively advected scalars
-        self.naux = self.nvar - 4
+        self.naux = self.nvar - 2 # 3
         if self.naux > 0:
-            self.irhox = 4
+            self.irhox = 2 #4
         else:
             self.irhox = -1
 
         # primitive variables
-        self.nq = 4 + self.naux
+        self.nq = 6 + self.naux #5 + self.nau
 
         self.irho = 0
         self.iu = 1
-        self.iv = 2
-        self.ip = 3
+        self.ip = 2
+        self.im = 3
+        self.ipot = 4
+        self.iX = 5
 
         if self.naux > 0:
             self.ix = 4   # advected scalar
@@ -53,25 +62,127 @@ class Variables(object):
             self.ix = -1
 
 
-def cons_to_prim(U, gamma, ivars, myg):
-    """ convert an input vector of conserved variables to primitive variables """
 
+def cons_to_prim(U, gamma, ivars, myg, metric):
+    """ 
+    Convert an input vector of conserved variables (GR) to primitive variables (GR)
+    Consistent with Relativistic Hydrodynamics (Rezzolla & Zanotti)
+    
+    Input
+    -----
+    U - vector of conserved variables
+    gamma - ratio of specific heats used in gamma law EOS
+    ivars - variables used to label conserved variables (Defined in eqn. (5.27) of Baumgarte & Shapiro)
+      D   - .idens
+      S   - .imom
+      tau - .iener
+
+
+    myg : Grid1D object
+        defines discretization, see mesh.patch.Grid1D
+
+    metric : Metric object
+        defines spatial metric, see gr.metric.Metric
+
+    Output
+    ------
+    q - Vector of primitive variables
+
+    """
+    #calculate pressure
+    def f_p(p, U, gamma, metric, i):
+    
+        #shortcut variables 
+        upd = U[i,ivars.iener] + p + U[i,ivars.idens]
+        
+        gss = metric.inv_g.xx*U[i,ivars.imom]*q[i,ivars.imom]   
+
+        #density in terms of conservative vars and pressure
+        rho = U[i,ivars.idens]/upd*np.sqrt(upd**2 - gss)
+
+        #specific internal energy in terms of conservative vars and pressure
+        eps = 1./U[i,ivars.idens]*(np.sqrt(upd**2 - gss) - upd/np.sqrt(upd**2 - gss) - U[i,ivars.idens])
+
+        return p - rho*eps*(gamma - 1) #hard code version of EOS call (for ease of zero finder)
+
+    #array to hold newly calculated primitives
     q = myg.scratch_array(nvar=ivars.nq)
 
-    q[:, :, ivars.irho] = U[:, :, ivars.idens]
-    q[:, :, ivars.iu] = U[:, :, ivars.ixmom]/U[:, :, ivars.idens]
-    q[:, :, ivars.iv] = U[:, :, ivars.iymom]/U[:, :, ivars.idens]
+    #integrate to find mass enclosed O'Connor & Ott 2010 Eqn. (4)
+   
+    #Tau plus D 
+    tpd = U[:,ivars.idens] + U[:,ivars.iener]
 
-    e = (U[:, :, ivars.iener] -
-         0.5*q[:, :, ivars.irho]*(q[:, :, ivars.iu]**2 +
-                                  q[:, :, ivars.iv]**2))/q[:, :, ivars.irho]
+    #mask to find ghost zones
+    ghost = np.where(myg.x < 0)
+    
+    #index of first interior zone
+    id = len(ghost[0]) - 1
 
-    q[:, :, ivars.ip] = eos.pres(gamma, q[:, :, ivars.irho], e)
+    #help for integrating from origin
+    tempx = myg.x[id]
+    myg.x[id] = 0
+    temptpd = tpd[id]
+    tpd[id] = 0
 
+    #mass integration
+    for i in range(id,len(q[:,ivars.im])):
+        q[i,ivars.im] = 4*np.pi*np.trapz(tpd[id:i+1]*myg.x[id:i+1]*myg.x[id:i+1],myg.x[id:i+1])
+
+    #return to original grid value
+    myg.x[id] = tempx
+    tpd[id] = temptpd  
+
+    #reflective BCs
+    q[:id+1,ivars.im] = q[id+1:2*(id+1),ivars.im][::-1]
+ 
+    #X factor defined in " " Eqn. (2) (calculating only interior zones) 
+   
+    #Gravitational constant divided by speed of light squared to convert between mass and length
+    Gc2 = 6.67e-8 / 9.e20
+    #I think I need to worry about units here...
+    q[id+1:,ivars.iX] = 1/np.sqrt(1 - 2*Gc2*q[id+1:,ivars.im]/myg.x[id+1:])
+
+    #Reflective BCs
+    q[:id+1,ivars.iX] = q[id+1:2*(id+1),ivars.iX][::-1]
+
+    #scale by X to match between Rezzolla & Zanotti and O'Connor & Ott
+    U[:,ivars.idens] = q[:,ivars.iX]*U[:,ivars.idens]
+
+    #solve for pressure numerically
+    for i in range(0,len(U[:,ivars.idens])):
+        q[i, ivars.ip] = optimize.brentq(f_p,-0.1,1.e20,args=(U,gamma,metric,i),maxiter=1000) #different limit b/c of units?
+
+   
+    #shortcut variables 
+    upd = U[:,ivars.iener] + q[:, ivars.ip] + U[:,ivars.idens]  
+ 
+    gss = metric.inv_g.xx*U[:,ivars.imom]*U[:,ivars.imom]
+
+    #solve for density 
+    q[:, ivars.irho] =  U[:,ivars.idens]/upd*np.sqrt(upd**2 - gss)
+ 
+    #create variable for spec. int. energy (eps)
+    eps = np.copy(q[:,ivars.irho])
+    
+    #assign eps values
+    eps = 1./U[:,ivars.idens]*(np.sqrt(upd**2 - gss) - upd/np.sqrt(upd**2 - gss) - U[:,ivars.idens])
+
+    #function calculating velocity
+    def f_v(v,U,q,i):
+        #velocity & S relation as used in O'Connor & Ott (2010)
+
+        return (U[i,ivars.imom] - (q[i,ivars.irho] + q[i,ivars.irho]*eps[i] + q[i,ivars.ip])*(1 - v**2)*v)
+
+    #solve for velocity numerically
+    for i in range(0,len(U[:,ivars.idens])):
+        q[i, ivars.iu] = optimize.brentq(f_v,-0.5,0.5,args=(U,q,i),maxiter=1000) #good to within 0.5c
+
+    #Below is for additional variables to be treated as 'passively advected scalars' should I keep it?
     if ivars.naux > 0:
         for nq, nu in zip(range(ivars.ix, ivars.ix+ivars.naux),
                           range(ivars.irhox, ivars.irhox+ivars.naux)):
-            q[:, :, nq] = U[:, :, nu]/q[:, :, ivars.irho]
+            q[:, nq] = U[:, nu]/q[:, ivars.irho]
 
     return q
 
@@ -88,24 +199,40 @@ def prim_to_cons(q, gamma, ivars, myg, metric):
         polytropic constant
 
     ivars : Variables object like
-        contains keyword based lookup for indexes of energy, momentum and
-        density """
+        contains keyword based lookup for indexes of both conservative
+        variables U and primitive variables q 
+
+    myg : Grid1D object
+        defines discretization, see mesh.patch.Grid1D
+
+    metric : Metric object
+        defines spatial metric, see gr.metric.Metric
+        """
 
     U = myg.scratch_array(nvar=ivars.nvar)
 
-    U[:, :, ivars.idens] = q[:, :, ivars.irho]
-    U[:, :, ivars.imom] = q[:, :, ivars.iu]*U[:, :, ivars.idens]
-    # U[:, :, ivars.iymom] = q[:, :, ivars.iv]*U[:, :, ivars.idens]
+    v      = q[:, ivars.iu]
+    #lapse  = np.exp( q[:, ivars.ipot] )
+    P      = q[:, ivars.ip]
+    rho0   = q[:, ivars.irho]
+    rhoe   = eos.rhoe( gamma, P )
+    rho0_h = rho0 + rhoe + P
+    W      = np.sqrt(1 - v**2)
 
-    rhoe = eos.rhoe(gamma, q[:, :, ivars.ip])
+    # see O'Connor and Ott 2010, section 2. 
+    #X      = rho0_h*W**2 - P
+    X      = q[:, ivars.iX]
+    # see O'Connor and Ott 2010, section 2.
+    v_r    = v / X
 
-    U[:, :, ivars.iener] = rhoe + 0.5*q[:, :, ivars.irho]*(q[:, :, ivars.iu]**2 +
-                                                           q[:, :, ivars.iv]**2)
+    U[:, ivars.idens] = X * rho0 * W
+    U[:, ivars.imom]  = rho0_h * W**2 * v
+    U[:, ivars.iener] = rho0_h * W**2 - P - U[:, ivars.idens] 
 
     if ivars.naux > 0:
         for nq, nu in zip(range(ivars.ix, ivars.ix+ivars.naux),
-                          range(ivars.irhox, ivars.irhox+ivars.naux)):
-            U[:, :, nu] = q[:, :, nq]*q[:, :, ivars.irho]
+                range(ivars.irhox, ivars.irhox+ivars.naux)):
+            U[:, nu] = q[:, nq]*q[:, ivars.irho]
 
     return U
 
@@ -115,30 +242,33 @@ class Simulation(NullSimulation):
     compressible hydrodynamics solver
 
     """
+    
+    def __init__(self, *args, data_class=patch.CellCenterData1d, **kwargs):
+        super().__init__(*args, data_class = data_class, **kwargs)
 
     def initialize(self, extra_vars=None, ng=4):
         """
         Initialize the grid and variables for compressible flow and set
         the initial conditions for the chosen problem.
         """
-        my_grid = grid_setup(self.rp, ng=ng)
+        my_grid = grid_setup_1d(self.rp, ng=ng)
         my_data = self.data_class(my_grid)
 
         # define solver specific boundary condition routines
         bnd.define_bc("hse", BC.user, is_solid=False)
         bnd.define_bc("ramp", BC.user, is_solid=False)  # for double mach reflection problem
 
-        bc, bc_xodd, bc_yodd = bc_setup(self.rp)
+        bc, bc_xodd = bc_setup_1d(self.rp)
 
         # are we dealing with solid boundaries? we'll use these for
         # the Riemann solver
-        self.solid = bnd.bc_is_solid(bc)
+        self.solid = bnd.bc_is_solid_1d(bc)
 
         # density and energy
         my_data.register_var("density", bc)
         my_data.register_var("energy", bc)
-        my_data.register_var("x-momentum", bc_xodd)
-        my_data.register_var("y-momentum", bc_yodd)
+        my_data.register_var("momentum", bc_xodd)
+        # my_data.register_var("y-momentum", bc_yodd)
 
         # any extras?
         if extra_vars is not None:
@@ -161,7 +291,7 @@ class Simulation(NullSimulation):
         # some auxillary data that we'll need to fill GC in, but isn't
         # really part of the main solution
         aux_data = self.data_class(my_grid)
-        aux_data.register_var("ymom_src", bc_yodd)
+        # aux_data.register_var("ymom_src", bc_yodd)
         aux_data.register_var("E_src", bc)
         aux_data.create()
         self.aux_data = aux_data
@@ -174,6 +304,7 @@ class Simulation(NullSimulation):
         # initial conditions for the problem
         problem = importlib.import_module("{}.problems.{}".format(
             self.solver_name, self.problem_name))
+        print(problem)
         problem.init_data(self.cc_data, self.rp)
 
         if self.verbose > 0:
@@ -266,10 +397,10 @@ class Simulation(NullSimulation):
 
         q = cons_to_prim(self.cc_data.data, gamma, ivars, self.cc_data.grid)
 
-        rho = q[:, :, ivars.irho]
-        u = q[:, :, ivars.iu]
-        v = q[:, :, ivars.iv]
-        p = q[:, :, ivars.ip]
+        rho = q[:, ivars.irho]
+        u = q[:, ivars.iu]
+        v = q[:, ivars.iv]
+        p = q[:, ivars.ip]
         e = eos.rhoe(gamma, p)/rho
 
         magvel = np.sqrt(u**2 + v**2)
