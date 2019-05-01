@@ -18,6 +18,7 @@ import importlib
 
 from mesh import patch
 
+from hydro_base.grid import Grid1D
 from gr_radial_solver.custom_grid import CustomGrid1D
 from gr_radial_solver.equations import Polytrope
 
@@ -46,6 +47,9 @@ def grid_setup_1d(rp):
     r_const = rp.get_param("mesh.r_const")
     r_max = rp.get_param("mesh.r_max")
 
+    xmin = rp.get_param('mesh.xmin')
+    xmax = rp.get_param('mesh.xmax')
+
     # Convert to geometric units
     dr_center = units.convert(dr_center, units.CGS.length, units.REL.length)
     dr = units.convert(dr, units.CGS.length, units.REL.length)
@@ -53,6 +57,7 @@ def grid_setup_1d(rp):
     r_max = units.convert(r_max, units.CGS.length, units.REL.length)
 
     grid = CustomGrid1D(nzones, ncenter, dr_center, dr, r_const, r_max, ng)
+    # grid = Grid1D()
 
     return grid
 
@@ -179,8 +184,8 @@ class Simulation(NullSimulation):
         self.cc_data = my_data
 
         # Setup solver stuff
-        # self.eos = PolytropicEOS(K, gamma) # for tov
-        self.eos = NoPressureEOS(K, gamma) # for os
+        self.eos = PolytropicEOS(K, gamma) # for tov
+        # self.eos = NoPressureEOS(0.0, 1.67) # for os
         self.eqns = Polytrope(self.eos, grid, self.atm_rho, self.atm_eps)
         self.reconstruct = MinmodReconstruct1D(grid)
 

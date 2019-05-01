@@ -14,7 +14,7 @@ from hydro_base.variables import ConservedVector1D, PrimitiveVector1D
 from hydro_base.eos import NoPressureEOS
 from gr_radial_solver.equations import Polytrope
 
-MSUN = 1.98848e33
+# MSUN = 1.98848e33
 # G = 6.6726e-8
 # C = 2.998e10
 
@@ -32,33 +32,25 @@ def init_data(my_data, rp, eqns: Polytrope):
     ihi = my_data.grid.ihi
 
     # get the OS parameters
-    a = 5.0 #rp.get_param("os.radMass_ratio")
+    a = rp.get_param("os.radmass_ratio")
     mass = rp.get_param("os.mass") # in REL units, so here mass = # solar masses
 
     # Test something
-    rho_test = 1.23e-2
-    rho_test = units.convert(rho_test, units.REL.density, units.CGS.density)
-    print("test rho: {:.3e}".format(rho_test))
+    # rho_test = 1.23e-2
+    # rho_test = units.convert(rho_test, units.REL.density, units.CGS.density)
+    # print("test rho: {:.3e}".format(rho_test))
 
     r = my_data.grid.x
 
     r_c = r[ilo]
     r_max = r[ihi]
-    print(units.convert(r_c, units.REL.length, units.CGS.length))
+    # print(units.convert(r_c, units.REL.length, units.CGS.length))
 
     # Convert to relativistic units
     # mass = units.convert(mass, units.CGS.mass, units.REL.mass)
     print(mass)
 
     r_end = a * mass
-
-    # r_end = units.convert(r_end, units.REL.length, units.CGS.length)
-    # rho0 = mass*MSUN*3.0/(4.0*np.pi*r_end**3)
-    # rho0 = units.convert(rho0, units.CGS.density, units.REL.density)
-
-    # r_c = units.convert(r_c, units.CGS.length, units.REL.length)
-    # r_max = units.convert(r_max, units.CGS.length, units.REL.length)
-    # r_end = units.convert(r_end, units.CGS.length, units.REL.length)
 
     rho0 = mass*3.0/(4.0*np.pi*r_end**3)
 
@@ -67,7 +59,7 @@ def init_data(my_data, rp, eqns: Polytrope):
 
     grid = my_data.grid
 
-    eos = NoPressureEOS(0.0, 1.0)
+    eos = Polytrope(1e-20,1.67) #NoPressureEOS(0.0, 1.67)
 
     initial = OSInitialData(grid)
     initial.initialize(eos)
