@@ -21,7 +21,7 @@ from mesh import patch
 from gr_radial_solver.custom_grid import CustomGrid1D
 from gr_radial_solver.equations import Polytrope
 
-from hydro_base.eos import GammaLawEOS, PolytropicEOS
+from hydro_base.eos import GammaLawEOS, PolytropicEOS, NoPressureEOS
 from hydro_base.reconstruct import Reconstruct1D, minmod
 from hydro_base.riemann import HLLE1D, Rusanov1D
 import hydro_base.variables as vars
@@ -179,7 +179,8 @@ class Simulation(NullSimulation):
         self.cc_data = my_data
 
         # Setup solver stuff
-        self.eos = PolytropicEOS(K, gamma)
+        # self.eos = PolytropicEOS(K, gamma) # for tov
+        self.eos = NoPressureEOS(K, gamma) # for os
         self.eqns = Polytrope(self.eos, grid, self.atm_rho, self.atm_eps)
         self.reconstruct = MinmodReconstruct1D(grid)
 

@@ -1,0 +1,31 @@
+# simple inputs files for the OS stability test
+
+[driver]
+max_steps = 200
+tmax = 1.0
+
+[io]
+basename = gr_os
+dt_out = 0.05
+
+[mesh]
+nx = 1000
+xmin = 2e3
+xmax = 15e6
+xlboundary = outflow
+xrboundary = outflow
+nzones=1000
+ncenter=30
+nghost=4
+dr_center=0.5e5
+dr=1e5
+r_const=15e6
+r_max=20e6
+
+[os]
+radMass_ratio = 5.0
+mass = 5.0
+
+[eos]
+gamma = 1.0
+K = 0
