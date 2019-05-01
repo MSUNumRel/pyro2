@@ -214,7 +214,7 @@ def states(idir, ng, dx, dt,
     return q_l, q_r
 
 
-def gamma_plus_minus(un, ut, c_s):
+def gamma_plus_minus(un, c_s):
     r"""
     a helper function for the general relativistice HLLE
     below
@@ -239,8 +239,8 @@ def gamma_plus_minus(un, ut, c_s):
     
     #two useful things to sto
     a = un*(1 - c_s**2)
-    b = c_s*np.power((1 - v_sq)*(1 - un**2 - ut**2*c_s**2), 0.5)
-    c = (1 - v_sq*c_s**2)
+    b = c_s*(1 - un**2)
+    c = (1 - un**2*c_s**2)
 
     gamma_minus = (a - b)/c
     gamma_plus = (a + b)/c
@@ -248,8 +248,8 @@ def gamma_plus_minus(un, ut, c_s):
     return gamma_minus, gamma_plus
 
 
-def riemann_hlle(idir, ng,
-                 idens, ixmom, iymom, iener, irhoX, nspec,
+def riemann_hlle(ng,
+                 idens, ixmom, iener, irhoX, nspec,
                  lower_solid, upper_solid,
                  gamma, U_l, U_r):
     r"""
@@ -265,7 +265,7 @@ def riemann_hlle(idir, ng,
         The number of ghost cells
     nspec : int
         The number of species
-    idens, ixmom, iymom, iener, irhoX : int
+    idens, ixmom, iener, irhoX : int
         The indices of the density, x-momentum, y-momentum, internal energy density
         and species partial densities in the conserved state vector.
     lower_solid, upper_solid : int
@@ -292,79 +292,63 @@ def riemann_hlle(idir, ng,
     U_state = np.zeros(nvar)
 
     nx = qx - 2 * ng
-    ny = qy - 2 * ng
     ilo = ng
     ihi = ng + nx
-    jlo = ng
-    jhi = ng + ny
 
     for i in range(ilo - 1, ihi + 1):
-        for j in range(jlo - 1, jhi + 1):
-
-            # primitive variable states
-            rho_l = U_l[i, j, idens]
-            rho_r = U_r[i, j, idens]
-
-            # compute the sound speeds
-            # calculated from eq. 2.249
-            # this assumes a polytrope eos
-            c_l = (1/gamma/rho_l**(gamma - 1) + 1/(gamma - 1))**(-0.5)
-            c_r = (1/gamma/rho_r**(gamma - 1) + 1/(gamma - 1))**(-0.5)
-
-            # un = normal velocity; ut = transverse velocity
-            if (idir == 1):
-                un_l = U_l[i, j, ixmom] / rho_l
-                ut_l = U_l[i, j, iymom] / rho_l
-            else:
-                un_l = U_l[i, j, iymom] / rho_l
-                ut_l = U_l[i, j, ixmom] / rho_l
-
-            if (idir == 1):
-                un_r = U_r[i, j, ixmom] / rho_r
-                ut_r = U_r[i, j, iymom] / rho_r
-            else:
-                un_r = U_r[i, j, iymom] / rho_r
-                ut_r = U_r[i, j, ixmom] / rho_r
-
-            #now calculate the eigenvalues
-            gamma_l_m, gamma_l_p  = gamma_plus_minus(un_l, ut_l, c_l)
-            gamma_r_m, gamma_r_p  = gamma_plus_minus(un_r, ut_r, c_r)
-            
-            
-            S_l = np.min((0, gamma_l_m, gamma_r_m))
-            S_r = np.min((0, gamma_l_p, gamma_r_p))
-
-            # figure out which region we are in and compute the state and
-            # the interface fluxes using the HLLC Riemann solver
-            if (S_r <= 0.0):
-                # R region
-                U_state[:] = U_r[i, j, :]
-
-                F[i, j, :] = consFlux(idir, gamma, idens, ixmom, iymom, iener, irhoX, nspec,
-                                      U_state)
+        # primitive variable states
+        rho_l = U_l[i, idens]
+        rho_r = U_r[i, idens]
            
-            elif (S_r > 0.0 and S_l < 0.0):
-                # find the left starred flux
-                F_l[i, j, :] = consFlux(idir, gamma, idens, ixmom, iymom, iener, irhoX, nspec,
-                                      U_l[i, j, :])
+        # compute the sound speeds
+        # calculated from eq. 2.249
+        # this assumes a polytrope eos
+        c_l = (1/gamma/rho_l**(gamma - 1) + 1/(gamma - 1))**(-0.5)
+        c_r = (1/gamma/rho_r**(gamma - 1) + 1/(gamma - 1))**(-0.5)
+
+        # un = normal velocity
+        un_l = U_l[i, ixmom] / rho_l
+        un_r = U_r[i, ixmom] / rho_r
+
+        #now calculate the eigenvalues
+        gamma_l_m, gamma_l_p  = gamma_plus_minus(un_l, c_l)
+        gamma_r_m, gamma_r_p  = gamma_plus_minus(un_r, c_r)
+        
+        
+        S_l = np.min((0, gamma_l_m, gamma_r_m))
+        S_r = np.min((0, gamma_l_p, gamma_r_p))
+        
+        # figure out which region we are in and compute the state and
+        # the interface fluxes using the HLLC Riemann solver
+        if (S_r <= 0.0):
+            # R region
+            U_state[:] = U_r[i, :]
+
+            F[i, :] = consFlux(gamma, idens, ixmom, iener, irhoX, nspec,
+                                      U_state)
+            
+        elif (S_r > 0.0 and S_l < 0.0):
+             # find the left starred flux
+             F_l[i, :] = consFlux(gamma, idens, ixmom, iener, irhoX, nspec,
+                                      U_l[i, :])
 
                 # find the right starred flux
-                F_r[i, j, :] = consFlux(idir, gamma, idens, ixmom, iymom, iener, irhoX, nspec,
-                                      U_r[i, j, :])
+                F_r[i, :] = consFlux(gamma, idens, ixmom, iener, irhoX, nspec,
+                                      U_r[i, :])
 
                 # correct the flux
-                F[i, j, :] = (S_r * F_l[i, j, :] - S_l * F_r[i, j, :] + \
-                             S_l * S_r * (U_r[i, j, :] - U_l[i, j, :]))/(S_r - S_l)
+                F[i, :] = (S_r * F_l[i, :] - S_l * F_r[i, :] + \
+                             S_l * S_r * (U_r[i, :] - U_l[i, :]))/(S_r - S_l)
 
                 # * region
-                U_state[:] = (S_r * U_r[i, j, :] - S_l * U_l[i, j, :] + \
-                       F_l[i, j, :] - F_r[i, j, :])/(S_r - S_l)
+                U_state[:] = (S_r * U_r[i, :] - S_l * U_l[i, :] + \
+                       F_l[i, :] - F_r[i, :])/(S_r - S_l)
 
             else:
                 # L region
-                U_state[:] = U_l[i, j, :]
+                U_state[:] = U_l[i, :]
 
-                F[i, j, :] = consFlux(idir, gamma, idens, ixmom, iymom, iener, irhoX, nspec,
+                F[i, :] = consFlux(gamma, idens, ixmom, iener, irhoX, nspec,
                                       U_state)
 
             # we should deal with solid boundaries somehow here
