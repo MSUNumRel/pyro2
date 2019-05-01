@@ -1,5 +1,6 @@
 import numpy as np
 from numba import njit
+import compressible_GR.simulation.py as comp_gr
 
 
 @njit(cache=True)
@@ -307,8 +308,8 @@ def riemann_hlle(ng,
         c_r = (1/gamma/rho_r**(gamma - 1) + 1/(gamma - 1))**(-0.5)
 
         # un = normal velocity
-        un_l = U_l[i, ixmom] / rho_l
-        un_r = U_r[i, ixmom] / rho_r
+        un_l = comp_gr.cons_to_prim(U_l, gamma, ivars, myg, metric)#U_l[i, ixmom] / rho_l
+        un_r = comp_gr.cons_to_prim(U_r, gamma, ivars, myg, metric)#U_r[i, ixmom] / rho_r
 
         #now calculate the eigenvalues
         gamma_l_m, gamma_l_p  = gamma_plus_minus(un_l, c_l)
