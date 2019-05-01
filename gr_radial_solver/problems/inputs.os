@@ -16,12 +16,12 @@ xlboundary = outflow
 xrboundary = outflow
 
 [os]
-radMass_ratio = 5.0
+radmass_ratio = 5.0
 mass = 5.0
 
 [eos]
-gamma = 1.0
-K = 0
+gamma = 1.67
+K = 1e-20
 
 [gr_radial_solver]
 riemann = HLLE
